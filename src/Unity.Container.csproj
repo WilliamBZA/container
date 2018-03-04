@@ -30,14 +30,14 @@
   
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <TargetFrameworks>netcoreapp2.0;netcoreapp1.0;netstandard2.0;netstandard1.0;net47;net46;net45;net40</TargetFrameworks>
     <OutputPath>$(SolutionDir)lib</OutputPath>
+    <TargetFrameworks>netstandard1.0;netstandard2.0;net47;net46;net45;net40;netcoreapp1.0;netcoreapp2.0</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugType>Full</DebugType>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <TargetFramework>netstandard1.0</TargetFramework>
+    <TargetFrameworks>netstandard1.0;netstandard2.0;net46;net45;net40;netcoreapp1.0;netcoreapp2.0</TargetFrameworks>
   </PropertyGroup>
   
   <ItemGroup Condition="Exists('$(UnityAbstractions)')">
