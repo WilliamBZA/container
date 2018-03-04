@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Builder;
+using Unity.Exceptions;
 using Unity.Registration;
 using Unity.Resolution;
 
@@ -27,10 +28,15 @@ namespace Unity
             // Verify arguments
             var name = string.IsNullOrEmpty(nameToBuild) ? null : nameToBuild;
             var type = typeToBuild ?? throw new ArgumentNullException(nameof(typeToBuild));
-            var registration = GetRegistration(type, name);
-            var context = new BuilderContext(this, (InternalRegistration)registration, null, resolverOverrides);
 
-            return BuilUpPipeline(context);
+            try
+            {
+                return GetRegistration(type, name).Resolve(this, null, resolverOverrides);
+            }
+            catch (Exception ex)
+            {
+                throw new ResolutionFailedException(type, name, "Bummer!", ex);
+            }
         }
 
         #endregion

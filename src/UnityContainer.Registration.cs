@@ -51,11 +51,11 @@ namespace Unity
 
             // Create registration and add to appropriate storage
             var container = (lifetimeManager is ISingletonLifetimePolicy) ? _root : this;
-            var registration = new ContainerRegistration(typeFrom, name, typeTo, lifetimeManager);
+            var registration = new StaticRegistration(typeFrom, name, typeTo, lifetimeManager);
 
             // Add or replace existing 
             var previous = container.Register(registration);
-            if (previous is ContainerRegistration old && 
+            if (previous is StaticRegistration old && 
                 old.LifetimeManager is IDisposable disposable)
             {
                 // Dispose replaced lifetime manager
@@ -133,11 +133,11 @@ namespace Unity
 
             // Create registration and add to appropriate storage
             var container = (lifetimeManager is ISingletonLifetimePolicy) ? _root : this;
-            var registration = new ContainerRegistration(registeredType ?? type, name, type, lifetime);
+            var registration = new StaticRegistration(registeredType ?? type, name, type, lifetime);
 
             // Add or replace existing 
             var previous = container.Register(registration);
-            if (previous is ContainerRegistration old &&
+            if (previous is StaticRegistration old &&
                 old.LifetimeManager is IDisposable disposable)
             {
                 // Dispose replaced lifetime manager
@@ -513,7 +513,7 @@ namespace Unity
                     continue;
                 }
 
-                policy = _registrations.Entries[i].Value?[name]?.Get(policyInterface);
+                policy = (IBuilderPolicy)_registrations.Entries[i].Value?[name]?.Get(policyInterface);
                 break;
             }
 
@@ -524,6 +524,25 @@ namespace Unity
             }
 
             return _parent?.GetPolicy(type, name, policyInterface, out list);
+        }
+
+        private object Get(Type type, string name, Type requestedType)
+        {
+            var hashCode = (type?.GetHashCode() ?? 0) & 0x7FFFFFFF;
+            var targetBucket = hashCode % _registrations.Buckets.Length;
+            for (var i = _registrations.Buckets[targetBucket]; i >= 0; i = _registrations.Entries[i].Next)
+            {
+                if (_registrations.Entries[i].HashCode != hashCode ||
+                    _registrations.Entries[i].Key != type)
+                {
+                    continue;
+                }
+
+                return _registrations.Entries[i].Value?[name]?.Get(requestedType) ??
+                       _parent?._get(type, name, requestedType);
+            }
+
+            return _parent?._get(type, name, requestedType);
         }
 
         private void Set(Type type, string name, Type policyInterface, IBuilderPolicy policy)

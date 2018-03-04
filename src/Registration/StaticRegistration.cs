@@ -2,22 +2,20 @@
 using System.Diagnostics;
 using Unity.Injection;
 using Unity.Lifetime;
-using Unity.Policy;
 
 namespace Unity.Registration
 {
-    [DebuggerDisplay("ContainerRegistration: Type={RegisteredType?.Name},    Name={Name},    MappedTo={RegisteredType == MappedToType ? string.Empty : MappedToType?.Name ?? string.Empty},    {LifetimeManager?.GetType()?.Name}")]
-    public class ContainerRegistration : InternalRegistration, 
-                                         IContainerRegistration
+    [DebuggerDisplay("StaticRegistration: Type={RegisteredType?.Name},    Name={Name},    MappedTo={RegisteredType == MappedToType ? string.Empty : MappedToType?.Name ?? string.Empty},    {LifetimeManager?.GetType()?.Name}")]
+    public class StaticRegistration : InternalRegistration, 
+                                      IContainerRegistration
     {
         #region Constructors
 
-        public ContainerRegistration(Type registeredType, string name, Type mappedTo, LifetimeManager lifetimeManager)
-            : base(registeredType ?? mappedTo, string.IsNullOrEmpty(name) ? null : name)
+        public StaticRegistration(Type registeredType, string name, Type mappedTo, LifetimeManager lifetimeManager)
+            : base(registeredType ?? mappedTo, string.IsNullOrEmpty(name) ? null : name, typeof(ILifetimePolicy), lifetimeManager)
         {
             MappedToType = mappedTo;
-            Key = typeof(ILifetimePolicy);
-            Value = lifetimeManager;
+            LifetimeManager = lifetimeManager;
             LifetimeManager.InUse = true;
         }
 
@@ -39,14 +37,14 @@ namespace Unity.Registration
         /// </summary>
         /// <remarks>
         /// This property will be null if this registration is for an open generic.</remarks>
-        public LifetimeManager LifetimeManager => (LifetimeManager)Value;
+        public LifetimeManager LifetimeManager { get; }
 
         #endregion
 
 
         #region IPolicySet
 
-        public override void Set(Type policyInterface, IBuilderPolicy policy)
+        public override void Set(Type policyInterface, object policy)
         {
             if (policy is InjectionFactory && (MappedToType != RegisteredType))
                 throw new InvalidOperationException("Registration where both MappedToType and InjectionFactory are set is not supported");

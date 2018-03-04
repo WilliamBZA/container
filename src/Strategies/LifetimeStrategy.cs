@@ -100,7 +100,7 @@ namespace Unity.Strategies
                 }
 
                 // Dynamic registration
-                if (!(registration is ContainerRegistration) && registration.Type.GetTypeInfo().IsGenericType)
+                if (!(registration is StaticRegistration) && registration.Type.GetTypeInfo().IsGenericType)
                     return true;
             }
 

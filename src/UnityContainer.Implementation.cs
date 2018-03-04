@@ -20,16 +20,22 @@ using Unity.ObjectBuilder.Policies;
 using Unity.Policy;
 using Unity.Policy.BuildPlanCreator;
 using Unity.Registration;
+using Unity.Resolution;
 using Unity.Storage;
 using Unity.Strategies;
 using Unity.Strategy;
 
 namespace Unity
 {
+    // TODO: Find right place for this
+    public delegate object ResolveDelegate(IUnityContainer container, object existing, ResolverOverride[] resolverOverrides);
+
     [CLSCompliant(true)]
     public partial class UnityContainer
     {
         #region Delegates
+
+        private delegate object GetDelegate(Type type, string name, Type requestedType);
 
         internal delegate IBuilderPolicy GetPolicyDelegate(Type type, string name, Type policyInterface, out IPolicyList list);
         internal delegate void SetPolicyDelegate(Type type, string name, Type policyInterface, IBuilderPolicy policy);
@@ -68,12 +74,14 @@ namespace Unity
 
         // Methods
         internal Func<Type, string, bool> IsTypeRegistered;
-        internal Func<Type, string, IPolicySet> GetRegistration;
+        internal Func<Type, string, InternalRegistration> GetRegistration;
         internal Func<IBuilderContext, object> BuilUpPipeline;
         internal Func<INamedType, IPolicySet> Register;
         internal GetPolicyDelegate GetPolicy;
         internal SetPolicyDelegate SetPolicy;
         internal ClearPolicyDelegate ClearPolicy;
+
+        private GetDelegate _get;
 
         #endregion
 
@@ -106,6 +114,7 @@ namespace Unity
             GetPolicy = Get;
             SetPolicy = Set;
             ClearPolicy = Clear;
+            _get = Get;
 
             // TODO: Initialize disposables 
             _lifetimeContainer.Add(_strategies);
@@ -164,6 +173,7 @@ namespace Unity
             GetPolicy = parent.GetPolicy;
             SetPolicy = CreateAndSetPolicy;
             ClearPolicy = delegate { };
+            _get = _parent._get;
 
             // Strategies
             _strategies = _parent._strategies;
@@ -228,6 +238,7 @@ namespace Unity
             GetPolicy = Get;
             SetPolicy = Set;
             ClearPolicy = Clear;
+            _get = Get;
         }
 
         private static object ThrowingBuildUp(IBuilderContext context)
@@ -456,7 +467,7 @@ namespace Unity
                     return _container.GetPolicy(type, name, policyInterface, out list);
 
                 list = this;
-                return _registration.Get(policyInterface);
+                return (IBuilderPolicy)_registration.Get(policyInterface);
             }
 
 

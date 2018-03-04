@@ -256,7 +256,7 @@ namespace Unity.Builder
             if (!ReferenceEquals(type, OriginalBuildKey.Type) || name != OriginalBuildKey.Name)
                 return _container.GetPolicy(type, name, policyInterface, out list);
 
-            var result = Registration.Get(policyInterface);
+            var result = (IBuilderPolicy)Registration.Get(policyInterface);
             if (null != result) list = this;
 
             return result;
@@ -292,7 +292,7 @@ namespace Unity.Builder
             if (!ReferenceEquals(type, OriginalBuildKey.Type) || name != OriginalBuildKey.Name)
                 return _container.GetPolicy(type, name, policyInterface, out list);
 
-            var result = Registration.Get(policyInterface);
+            var result = (IBuilderPolicy)Registration.Get(policyInterface);
             if (null != result) list = this;
 
             return result;

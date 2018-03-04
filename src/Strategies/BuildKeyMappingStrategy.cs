@@ -24,7 +24,7 @@ namespace Unity.Strategies
         /// <param name="context">The context for the operation.</param>
         public override void PreBuildUp(IBuilderContext context)
         {
-            if (context.OriginalBuildKey is ContainerRegistration registration && 
+            if (context.OriginalBuildKey is StaticRegistration registration && 
                 registration.RegisteredType == registration.MappedToType)
                 return;
                 
@@ -89,7 +89,7 @@ namespace Unity.Strategies
         {
             switch (namedType)
             {
-                case ContainerRegistration registration:
+                case StaticRegistration registration:
                     return AnalysStaticRegistration(container, registration, injectionMembers);
 
                 case InternalRegistration registration:
@@ -100,7 +100,7 @@ namespace Unity.Strategies
             }
         }
 
-        private bool AnalysStaticRegistration(IUnityContainer container, ContainerRegistration registration, params InjectionMember[] injectionMembers)
+        private bool AnalysStaticRegistration(IUnityContainer container, StaticRegistration registration, params InjectionMember[] injectionMembers)
         {
             // Validate imput
             if (null == registration.MappedToType || registration.RegisteredType == registration.MappedToType) return false;

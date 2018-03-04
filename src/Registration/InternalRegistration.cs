@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Reflection;
 using Unity.Builder;
 using Unity.Builder.Strategy;
 using Unity.Policy;
@@ -10,13 +9,13 @@ using Unity.Storage;
 namespace Unity.Registration
 {
     [DebuggerDisplay("InternalRegistration:  Type={Type?.Name},    Name={Name}")]
-    public class InternalRegistration : LinkedNode<Type, IBuilderPolicy>, 
-                                        IPolicySet, 
+    public class InternalRegistration : IPolicySet, 
                                         INamedType
     {
         #region Fields
 
         private readonly int _hash;
+        private LinkedNode<Type, object> _next;
 
         #endregion
 
@@ -31,12 +30,16 @@ namespace Unity.Registration
             _hash = (Type?.GetHashCode() ?? 0 + 37) ^ (Name?.GetHashCode() ?? 0 + 17);
         }
 
-        public InternalRegistration(Type type, string name, Type policyInterface, IBuilderPolicy policy)
+        public InternalRegistration(Type type, string name, Type policyInterface, object policy)
         {
             Name = name;
             Type = type;
-            Key = policyInterface;
-            Value = policy;
+
+            _next = new LinkedNode<Type, object>
+            {
+                Key = policyInterface,
+                Value = policy
+            };
 
             _hash = (Type?.GetHashCode() ?? 0 + 37) ^ (Name?.GetHashCode() ?? 0 + 17);
         }
@@ -45,6 +48,8 @@ namespace Unity.Registration
 
 
         #region Public Members
+
+        public ResolveDelegate Resolve { get; private set; } = (c, o, r) => throw new NotImplementedException();
 
         public virtual IList<BuilderStrategy> BuildChain { get; set; }
 
@@ -55,9 +60,9 @@ namespace Unity.Registration
 
         #region IPolicySet
 
-        public virtual IBuilderPolicy Get(Type policyInterface)
+        public virtual object Get(Type policyInterface)
         {
-            for (var node = (LinkedNode<Type, IBuilderPolicy>)this; node != null; node = node.Next)
+            for (var node = _next; node != null; node = node.Next)
             {
                 if (ReferenceEquals(node.Key, policyInterface))
                     return node.Value;
@@ -66,56 +71,32 @@ namespace Unity.Registration
             return null;
         }
 
-        public virtual void Set(Type policyInterface, IBuilderPolicy policy)
+        public virtual void Set(Type policyInterface, object policy)
         {
-            if (null == Value && null == Key)
+            _next = new LinkedNode<Type, object>
             {
-                Key = policyInterface;
-                Value = policy;
-            }
-            else
-            {
-                Next = new LinkedNode<Type, IBuilderPolicy>
-                {
-                    Key = policyInterface,
-                    Value = policy,
-                    Next = Next
-                };
-            }
+                Key = policyInterface,
+                Value = policy,
+                Next = _next
+            };
         }
 
         public virtual void Clear(Type policyInterface)
         {
-            LinkedNode<Type, IBuilderPolicy> node;
-            LinkedNode<Type, IBuilderPolicy> last = null;
+            LinkedNode<Type, object> node;
+            LinkedNode<Type, object> last = _next;
 
-            for (node = this; node != null; node = node.Next)
+            for (node = _next; node != null; node = node.Next)
             {
                 if (ReferenceEquals(node.Key, policyInterface))
                 {
-                    if (null == last)
-                    {
-                        Key = node.Next?.Key;
-                        Value = node.Next?.Value;
-                        Next = node.Next?.Next;
-                    }
-                    else
-                    {
-                        last.Key = node.Next?.Key;
-                        last.Value = node.Next?.Value;
-                        last.Next = node.Next?.Next;
-                    }
+                    last.Key = node.Next?.Key;
+                    last.Value = node.Next?.Value;
+                    last.Next = node.Next?.Next;
                 }
-                
+
                 last = node;
             }
-        }
-
-        public virtual void ClearAll()
-        {
-            Key = null;
-            Value = null;
-            Next  = null;
         }
 
         #endregion
