@@ -3,6 +3,7 @@
   <Import Project="..\package.props" />
 
   <PropertyGroup>
+    <LangVersion>7.2</LangVersion>
     <FileVersion>$(Version).0</FileVersion>
     <AssemblyVersion>$(Version).0</AssemblyVersion>
     <PackageId>Unity.Container</PackageId>

@@ -20,8 +20,8 @@ namespace Unity
         /// Implemented as a nested class to gain access to  
         /// container that would otherwise be inaccessible.
         /// </remarks>
-        private class ContainerContext : ExtensionContext,
-                                         IPolicyList 
+        private class ContainerExtensionContext : ExtensionContext,
+                                                  IPolicyList 
         {
             #region Fields
 
@@ -33,7 +33,7 @@ namespace Unity
 
             #region Constructors
 
-            public ContainerContext(UnityContainer container)
+            public ContainerExtensionContext(UnityContainer container)
             {
                 _container = container ?? throw new ArgumentNullException(nameof(container));
                 Policies = this;

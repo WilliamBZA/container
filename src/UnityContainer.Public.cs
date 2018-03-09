@@ -27,7 +27,7 @@ namespace Unity
 
                 _extensions.Add(extension ?? throw new ArgumentNullException(nameof(extension)));
             }
-            extension.InitializeExtension(_context);
+            extension.InitializeExtension(_extensionContext);
 
             return this;
         }
@@ -63,7 +63,7 @@ namespace Unity
         public IUnityContainer CreateChildContainer()
         {
             var child = new UnityContainer(this);
-            ChildContainerCreated?.Invoke(this, new ChildContainerCreatedEventArgs(child._context));
+            ChildContainerCreated?.Invoke(this, new ChildContainerCreatedEventArgs(child._extensionContext));
             return child;
         }
 

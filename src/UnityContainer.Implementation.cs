@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Unity.AspectFactories;
 using Unity.Builder;
 using Unity.Builder.Strategy;
 using Unity.Container;
@@ -20,16 +21,12 @@ using Unity.ObjectBuilder.Policies;
 using Unity.Policy;
 using Unity.Policy.BuildPlanCreator;
 using Unity.Registration;
-using Unity.Resolution;
 using Unity.Storage;
 using Unity.Strategies;
 using Unity.Strategy;
 
 namespace Unity
 {
-    // TODO: Find right place for this
-    public delegate object ResolveDelegate(IUnityContainer container, object existing, ResolverOverride[] resolverOverrides);
-
     [CLSCompliant(true)]
     public partial class UnityContainer
     {
@@ -47,13 +44,20 @@ namespace Unity
         #region Fields
 
         // Container specific
+        private readonly UnityContainer _root;
         private readonly UnityContainer _parent;
         internal readonly LifetimeContainer _lifetimeContainer;
         private List<UnityContainerExtension> _extensions;
-        private UnityContainer _root;
+
+        // Factories
+
+        private IList<RegistrationFactoryDelegate> _registrationFactories;
+
+
+        ///////////////////////
 
         // Policies
-        private readonly ContainerContext _context;
+        private readonly ContainerExtensionContext _extensionContext;
 
         // Strategies
         private StagedStrategyChain<BuilderStrategy, UnityBuildStage> _strategies;
@@ -73,6 +77,7 @@ namespace Unity
         internal BuilderStrategy[] _buildChain;
 
         // Methods
+        private RegisterDelegate _registerPipeline;
         internal Func<Type, string, bool> IsTypeRegistered;
         internal Func<Type, string, InternalRegistration> GetRegistration;
         internal Func<IBuilderContext, object> BuilUpPipeline;
@@ -93,20 +98,23 @@ namespace Unity
         /// </summary>
         public UnityContainer()
         {
+            // Root container
             _root = this;
-
-            // Lifetime
             _lifetimeContainer = new LifetimeContainer(this);
-
-            // Registrations
             _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(ContainerInitialCapacity);
 
+            // Factories
+            _registrationFactories = new List<RegistrationFactoryDelegate> { Build.RegistrationAspectFactory,
+                                                                           Mapping.RegistrationAspectFactory,
+                                                                          Lifetime.RegistrationAspectFactory,
+                                                                             Setup.RegistrationAspectFactory };
             // Context and policies
-            _context = new ContainerContext(this);
+            _extensionContext = new ContainerExtensionContext(this);
             _strategies = new StagedStrategyChain<BuilderStrategy, UnityBuildStage>();
             _buildPlanStrategies = new StagedStrategyChain<BuilderStrategy, BuilderStage>();
 
             // Methods
+            _registerPipeline = BuildRegisterPipeline();
             BuilUpPipeline = ThrowingBuildUp;
             IsTypeRegistered = (type, name) => null != Get(type, name);
             GetRegistration = GetOrAdd;
@@ -154,11 +162,9 @@ namespace Unity
         /// will apply its own settings first, and then check the parent for additional ones.</param>
         private UnityContainer(UnityContainer parent)
         {
-            // Lifetime
+            // Child container initialization
             _lifetimeContainer = new LifetimeContainer(this);
-
-            // Context and policies
-            _context = new ContainerContext(this);
+            _extensionContext = new ContainerExtensionContext(this);
 
             // Parent
             _parent = parent ?? throw new ArgumentNullException(nameof(parent));
@@ -207,6 +213,17 @@ namespace Unity
 
         #region Implementation
 
+        private RegisterDelegate BuildRegisterPipeline()
+        {
+            RegisterDelegate method = null;
+            foreach (RegistrationFactoryDelegate factory in _registrationFactories)
+            {
+                method = factory(method);
+            }
+            return method;
+        }
+
+
         private void CreateAndSetPolicy(Type type, string name, Type policyInterface, IBuilderPolicy policy)
         {
             lock (GetRegistration)
@@ -233,7 +250,7 @@ namespace Unity
         {
             _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(ContainerInitialCapacity);
             IsTypeRegistered = IsTypeRegisteredLocally;
-            GetRegistration = (type, name) => Get(type, name) ?? _parent.GetRegistration(type, name);
+            GetRegistration = (type, name) => (InternalRegistration)Get(type, name) ?? _parent.GetRegistration(type, name);
             Register = AddOrUpdate;
             GetPolicy = Get;
             SetPolicy = Set;
@@ -411,35 +428,24 @@ namespace Unity
 
             return set;
         }
-        
-        internal IList<BuilderStrategy> GetBuilders(InternalRegistration registration)
-        {
-            var chain = new List<BuilderStrategy>();
-            var strategies = _buildChain;
 
-            for (var i = 0; i < strategies.Length; i++)
-            {
-                var strategy = strategies[i];
-
-                if (registration.Type != null && strategy.RequiredToBuildType(this, registration, null))
-                    chain.Add(strategy);
-            }
-
-            return chain;
-        }
 
         private IPolicySet CreateRegistration(Type type, string name)
         {
-            var registration = new InternalRegistration(type, name);
-            registration.BuildChain = GetBuilders(registration);
-            return registration;
+            RegistrationData data = new RegistrationData { Registration = new InternalRegistration(type, name) };
+
+            _registerPipeline(this, ref data);
+
+            return (IPolicySet)data.Registration;
         }
 
         private IPolicySet CreateRegistration(Type type, string name, Type policyInterface, IBuilderPolicy policy)
         {
-            var registration = new InternalRegistration(type, name, policyInterface, policy);
-            registration.BuildChain = GetBuilders(registration);
-            return registration;
+            RegistrationData data = new RegistrationData { Registration = new InternalRegistration(type, name, policyInterface, policy) };
+
+            _registerPipeline(this, ref data);
+
+            return (IPolicySet)data.Registration;
         }
 
         #endregion

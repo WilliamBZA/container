@@ -49,51 +49,15 @@ namespace Unity
                     Constants.TypesAreNotAssignable, typeFrom, typeTo), nameof(typeFrom));
             }
 
-            // Create registration and add to appropriate storage
-            var container = (lifetimeManager is ISingletonLifetimePolicy) ? _root : this;
             var registration = new StaticRegistration(typeFrom, name, typeTo, lifetimeManager);
-
-            // Add or replace existing 
-            var previous = container.Register(registration);
-            if (previous is StaticRegistration old && 
-                old.LifetimeManager is IDisposable disposable)
+            RegistrationData data = new RegistrationData
             {
-                // Dispose replaced lifetime manager
-                container._lifetimeContainer.Remove(disposable);
-                disposable.Dispose();
-            }
+                Registration = registration,
+                InjectionMembers = injectionMembers
+            };
 
-            // If Disposable add to container's lifetime
-            if (registration.LifetimeManager is IDisposable manager)
-                container._lifetimeContainer.Add(manager);
+            _registerPipeline(this, ref data);
 
-            // Add Injection Members
-            if (null != injectionMembers && injectionMembers.Length > 0)
-            {
-                var context = new RegistrationContext(this, registration);
-                foreach (var member in injectionMembers)
-                {
-                    member.AddPolicies(registration.RegisteredType, registration.MappedToType, 
-                                       registration.Name, context);
-                }
-            }
-
-            // Check what strategies to run
-            var chain = new List<BuilderStrategy>();
-            var strategies = _buildChain;
-            for (var i = 0; i < strategies.Length; i++)
-            {
-                var strategy = strategies[i];
-                if (strategy.RequiredToBuildType(this, registration, injectionMembers))
-                    chain.Add(strategy);
-            }
-            registration.BuildChain = chain;
-
-            // Raise event
-            container.Registering?.Invoke(this, new RegisterEventArgs(registration.RegisteredType, 
-                                                                      registration.MappedToType,
-                                                                      registration.Name, 
-                                                                      registration.LifetimeManager));
             return this;
         }
 
@@ -128,41 +92,39 @@ namespace Unity
 
             var type = instance.GetType();
             var lifetime = lifetimeManager ?? new ContainerControlledLifetimeManager();
-            if (lifetime.InUse) throw new InvalidOperationException(Constants.LifetimeManagerInUse);
-            lifetime.SetValue(instance, _lifetimeContainer);
 
-            // Create registration and add to appropriate storage
-            var container = (lifetimeManager is ISingletonLifetimePolicy) ? _root : this;
             var registration = new StaticRegistration(registeredType ?? type, name, type, lifetime);
-
-            // Add or replace existing 
-            var previous = container.Register(registration);
-            if (previous is StaticRegistration old &&
-                old.LifetimeManager is IDisposable disposable)
+            RegistrationData data = new RegistrationData
             {
-                // Dispose replaced lifetime manager
-                container._lifetimeContainer.Remove(disposable);
-                disposable.Dispose();
-            }
+                Registration = registration,
+                Instance = instance
+            };
 
-            // If Disposable add to container's lifetime
-            if (registration.LifetimeManager is IDisposable manager)
-                container._lifetimeContainer.Add(manager);
+            _registerPipeline(this, ref data);
 
-            // Check what strategies to run
-            var chain = new List<BuilderStrategy>();
-            var strategies = _buildChain;
-            for (var i = 0; i < strategies.Length; i++)
+            return this;
+        }
+
+        #endregion
+
+      
+        #region Factory Registration
+
+        public IUnityContainer RegisterFactory(Type registeredType, string name, Func<IUnityContainer, Type, string, object> factory, LifetimeManager lifetimeManager)
+        {
+            // Validate imput
+            if (string.Empty == name) name = null;
+            if (null == factory) throw new ArgumentNullException(nameof(factory));
+
+            var registration = new StaticRegistration(registeredType, name, null, lifetimeManager ?? TransientLifetimeManager.Instance);
+            RegistrationData data = new RegistrationData
             {
-                var strategy = strategies[i];
-                if (strategy.RequiredToResolveInstance(this, registration))
-                    chain.Add(strategy);
-            }
-            registration.BuildChain = chain;
+                Registration = registration,
+                Factory = factory
+            };
 
-            // Raise event
-            container.RegisteringInstance?.Invoke(this, new RegisterInstanceEventArgs(registration.RegisteredType, instance,
-                                                                   registration.Name, registration.LifetimeManager));
+            _registerPipeline(this, ref data);
+
             return this;
         }
 
@@ -324,7 +286,7 @@ namespace Unity
 
         #region Registration manipulation
 
-        private IPolicySet AddOrUpdate(INamedType registration)
+        private InternalRegistration AddOrUpdate(INamedType registration)
         {
             var collisions = 0;
             var hashCode = (registration.Type?.GetHashCode() ?? 0) & 0x7FFFFFFF;
@@ -350,7 +312,7 @@ namespace Unity
                         _registrations.Entries[i].Value = existing;
                     }
 
-                    return existing.SetOrReplace(registration.Name, (IPolicySet)registration);
+                    return (InternalRegistration)existing.SetOrReplace(registration.Name, (IPolicySet)registration);
                 }
 
                 if (_registrations.RequireToGrow || ListToHashCutoverPoint < collisions)
@@ -370,7 +332,7 @@ namespace Unity
             }
         }
 
-        private IPolicySet GetOrAdd(Type type, string name)
+        private InternalRegistration GetOrAdd(Type type, string name)
         {
             var collisions = 0;
             var hashCode = (type?.GetHashCode() ?? 0) & 0x7FFFFFFF;
@@ -385,7 +347,7 @@ namespace Unity
                 }
 
                 var policy = _registrations.Entries[i].Value?[name];
-                if (null != policy) return policy; 
+                if (null != policy) return (InternalRegistration)policy; 
             }
 
             lock (_syncRoot)
@@ -410,7 +372,7 @@ namespace Unity
                         _registrations.Entries[i].Value = existing;
                     }
 
-                    return existing.GetOrAdd(name, () => CreateRegistration(type, name));
+                    return (InternalRegistration)existing.GetOrAdd(name, () => CreateRegistration(type, name));
                 }
 
                 if (_registrations.RequireToGrow || ListToHashCutoverPoint < collisions)
@@ -426,7 +388,7 @@ namespace Unity
                 _registrations.Entries[_registrations.Count].Value = new LinkedRegistry(name, registration);
                 _registrations.Buckets[targetBucket] = _registrations.Count;
                 _registrations.Count++;
-                return registration;
+                return (InternalRegistration)registration;
             }
         }
 
@@ -519,7 +481,7 @@ namespace Unity
 
             if (null != policy)
             {
-                list = _context.Policies;
+                list = _extensionContext.Policies;
                 return policy;
             }
 

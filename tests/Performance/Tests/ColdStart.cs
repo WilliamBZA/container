@@ -2,6 +2,7 @@
 using Runner.Setup;
 using System.Collections.Generic;
 using Unity;
+using Unity.Injection;
 
 namespace Runner.Tests
 {
@@ -19,10 +20,14 @@ namespace Runner.Tests
             _container.RegisterType<IService, Service>();
             _container.RegisterType<IService, Service>("1");
             _container.RegisterType<IService, Service>("2");
+            _container.RegisterType<UnityContainer>(new InjectionFactory((c,t,n)=>_container));
         }
 
         [Benchmark]
         public object Container() => _container.Resolve(typeof(IUnityContainer), null);
+
+        [Benchmark]
+        public object InjectionFactory() => _container.Resolve(typeof(UnityContainer), null);
 
         [Benchmark]
         public object Unregistered() => _container.Resolve(typeof(object), null);

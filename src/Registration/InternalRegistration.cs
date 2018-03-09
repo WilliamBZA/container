@@ -1,15 +1,17 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Unity.Builder;
 using Unity.Builder.Strategy;
+using Unity.Injection;
 using Unity.Policy;
 using Unity.Storage;
 
 namespace Unity.Registration
 {
     [DebuggerDisplay("InternalRegistration:  Type={Type?.Name},    Name={Name}")]
-    public class InternalRegistration : IPolicySet, 
+    public class InternalRegistration : IPolicySet, IEnumerable<object>,
                                         INamedType
     {
         #region Fields
@@ -49,7 +51,9 @@ namespace Unity.Registration
 
         #region Public Members
 
-        public ResolveDelegate Resolve { get; private set; } = (c, o, r) => throw new NotImplementedException();
+        public ResolveDelegate Resolve { get; set; }
+
+        public Func<IUnityContainer, Type, string, object> Factory { get; private set; }
 
         public virtual IList<BuilderStrategy> BuildChain { get; set; }
 
@@ -62,10 +66,15 @@ namespace Unity.Registration
 
         public virtual object Get(Type policyInterface)
         {
-            for (var node = _next; node != null; node = node.Next)
+            if (typeof(IInjectionFactory).Equals(policyInterface))
+                return Factory;
+            else
             {
-                if (ReferenceEquals(node.Key, policyInterface))
-                    return node.Value;
+                for (var node = _next; node != null; node = node.Next)
+                {
+                    if (ReferenceEquals(node.Key, policyInterface))
+                        return node.Value;
+                }
             }
 
             return null;
@@ -73,12 +82,19 @@ namespace Unity.Registration
 
         public virtual void Set(Type policyInterface, object policy)
         {
-            _next = new LinkedNode<Type, object>
+            if (typeof(IInjectionFactory).Equals(policyInterface))
             {
-                Key = policyInterface,
-                Value = policy,
-                Next = _next
-            };
+                Factory = (Func<IUnityContainer, Type, string, object>)policy;
+            }
+            else
+            {
+                _next = new LinkedNode<Type, object>
+                {
+                    Key = policyInterface,
+                    Value = policy,
+                    Next = _next
+                };
+            }
         }
 
         public virtual void Clear(Type policyInterface)
@@ -98,6 +114,22 @@ namespace Unity.Registration
                 last = node;
             }
         }
+
+        #endregion
+
+
+        #region IEnumerable
+
+
+        public IEnumerator<object> GetEnumerator()
+        {
+            for (var node = _next; node != null; node = node.Next)
+            {
+                yield return node.Value;
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         #endregion
 

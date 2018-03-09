@@ -11,6 +11,19 @@ namespace Unity.Tests.Container
     [TestClass]
     public class ContainerBasicFixture
     {
+
+        [TestMethod]
+        public void ResolveContainer()
+        {
+            var container = new UnityContainer();
+
+            Assert.AreSame(container, container.Resolve<IUnityContainer>());
+
+            var child = container.CreateChildContainer();
+
+            Assert.AreSame(child, child.Resolve<IUnityContainer>());
+        }
+
         [TestMethod]
         public void ResolveRegistered()
         {

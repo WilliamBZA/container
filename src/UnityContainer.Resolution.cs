@@ -29,13 +29,24 @@ namespace Unity
             var name = string.IsNullOrEmpty(nameToBuild) ? null : nameToBuild;
             var type = typeToBuild ?? throw new ArgumentNullException(nameof(typeToBuild));
 
+
             try
             {
-                return GetRegistration(type, name).Resolve(this, null, resolverOverrides);
+                var registration = GetRegistration(type, name);
+
+                ResolutionContext context = new ResolutionContext
+                {
+                    Container = this,
+                    LifetimeContainer = _lifetimeContainer,
+                    Overrides = resolverOverrides,
+                    Registration = registration
+                };
+
+                return registration.Resolve(ref context);
             }
             catch (Exception ex)
             {
-                throw new ResolutionFailedException(type, name, "Bummer!", ex);
+                throw new ResolutionFailedException(type, name, "// TODO: Bummer!", ex);
             }
         }
 
