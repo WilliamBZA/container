@@ -17,9 +17,7 @@ namespace Unity.Tests
         [TestMethod]
         public void Development_CurrentTest()
         {
-            object o = _container.Resolve<object>();
-
-            Assert.IsNotNull(o);
+            Assert.IsNotNull(_container.Resolve<Service1>());
         }
 
 
@@ -33,6 +31,17 @@ namespace Unity.Tests
             _container = new UnityContainer();
         }
     }
+
+    public class Service1
+    {
+        IUnityContainer _contaoner;
+
+        public Service1(IUnityContainer container)
+        {
+            _contaoner = container;
+        }
+    }
+
 
     // A dummy class to support testing type mapping
     public class Service : IService, IDisposable

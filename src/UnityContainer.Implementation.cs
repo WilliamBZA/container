@@ -11,16 +11,12 @@ using Unity.Container.Lifetime;
 using Unity.Events;
 using Unity.Exceptions;
 using Unity.Extension;
-using Unity.Lifetime;
-using Unity.ObjectBuilder.BuildPlan.DynamicMethod;
 using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Creation;
 using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Method;
 using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Property;
-using Unity.ObjectBuilder.BuildPlan.Selection;
-using Unity.ObjectBuilder.Policies;
 using Unity.Policy;
-using Unity.Policy.BuildPlanCreator;
 using Unity.Registration;
+using Unity.Select.Constructor;
 using Unity.Storage;
 using Unity.Strategies;
 using Unity.Strategy;
@@ -50,9 +46,13 @@ namespace Unity
         private List<UnityContainerExtension> _extensions;
 
         // Factories
+        private IList<PipelineFactoryDelegate<RegisterPipeline>> _registrationFactories;
+        private IList<PipelineFactoryDelegate<SelectConstructorPipeline>> _constructorPipelineFactories;
 
-        private IList<RegistrationFactoryDelegate> _registrationFactories;
-
+        // Pipelines
+        private RegisterPipeline _registerPipeline;
+        private GetRegistrationDelegate _getRegistration;
+        private LinkedNode<Type, object> _defaultPipelines;
 
         ///////////////////////
 
@@ -68,8 +68,10 @@ namespace Unity
         private HashRegistry<Type, IRegistry<string, IPolicySet>> _registrations;
 
         // Events
+#pragma warning disable 67
         private event EventHandler<RegisterEventArgs> Registering;
         private event EventHandler<RegisterInstanceEventArgs> RegisteringInstance;
+#pragma warning restore 67
         private event EventHandler<ChildContainerCreatedEventArgs> ChildContainerCreated;
 
         // Caches
@@ -77,7 +79,6 @@ namespace Unity
         internal BuilderStrategy[] _buildChain;
 
         // Methods
-        private RegisterDelegate _registerPipeline;
         internal Func<Type, string, bool> IsTypeRegistered;
         internal Func<Type, string, InternalRegistration> GetRegistration;
         internal Func<IBuilderContext, object> BuilUpPipeline;
@@ -104,17 +105,33 @@ namespace Unity
             _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(ContainerInitialCapacity);
 
             // Factories
-            _registrationFactories = new List<RegistrationFactoryDelegate> { Build.RegistrationAspectFactory,
-                                                                           Mapping.RegistrationAspectFactory,
-                                                                          Lifetime.RegistrationAspectFactory,
-                                                                             Setup.RegistrationAspectFactory };
+            _registrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { Activation.RegistrationAspectFactory,
+                                                                                             Creation.RegistrationAspectFactory,
+                                                                                           Properties.RegistrationAspectFactory,
+                                                                                              Methods.RegistrationAspectFactory,
+                                                                                              Mapping.RegistrationAspectFactory,
+                                                                                              Factory.RegistrationAspectFactory,
+                                                                                             Lifetime.RegistrationAspectFactory };
+
+            _constructorPipelineFactories = new List<PipelineFactoryDelegate<SelectConstructorPipeline>> { SelectLongestConstructor.SelectConstructorPipelineFactory,
+                                                                                                      SelectLongestConstructorSmart.SelectConstructorPipelineFactory,
+                                                                                                         SelectInjectionConstructor.SelectConstructorPipelineFactory,
+                                                                                                                     UnityContainer.SelectConstructorPipelineFactory };
+            // Pipelines
+            _registerPipeline = _registrationFactories.BuildPipeline();
+            _getRegistration = GetOrAdd;
+            _defaultPipelines = new LinkedNode<Type, object>
+            {
+                Key = typeof(SelectConstructorPipeline),
+                Value = _constructorPipelineFactories.BuildPipeline()
+            };
+
             // Context and policies
             _extensionContext = new ContainerExtensionContext(this);
             _strategies = new StagedStrategyChain<BuilderStrategy, UnityBuildStage>();
             _buildPlanStrategies = new StagedStrategyChain<BuilderStrategy, BuilderStage>();
 
             // Methods
-            _registerPipeline = BuildRegisterPipeline();
             BuilUpPipeline = ThrowingBuildUp;
             IsTypeRegistered = (type, name) => null != Get(type, name);
             GetRegistration = GetOrAdd;
@@ -146,10 +163,10 @@ namespace Unity
             _strategies.Invalidated += OnStrategiesChanged;
 
             // Default Policies
-            Set( null, null, GetDefaultPolicies()); 
-            Set(typeof(Func<>), string.Empty, typeof(ILifetimePolicy), new PerResolveLifetimeManager());
-            Set(typeof(Func<>), string.Empty, typeof(IBuildPlanPolicy), new DeferredResolveCreatorPolicy());
-            Set(typeof(Lazy<>), string.Empty, typeof(IBuildPlanCreatorPolicy), new GenericLazyBuildPlanCreatorPolicy());
+            //Set( null, null, GetDefaultPolicies()); 
+            //Set(typeof(Func<>), string.Empty, typeof(ILifetimePolicy), new PerResolveLifetimeManager());
+            //Set(typeof(Func<>), string.Empty, typeof(IBuildPlanPolicy), new DeferredResolveCreatorPolicy());
+            //Set(typeof(Lazy<>), string.Empty, typeof(IBuildPlanCreatorPolicy), new GenericLazyBuildPlanCreatorPolicy());
 
             // Register this instance
             RegisterInstance(typeof(IUnityContainer), null, this, new ContainerLifetimeManager());
@@ -196,33 +213,22 @@ namespace Unity
 
         #region Defaults
 
-        private IPolicySet GetDefaultPolicies()
-        {
-            var defaults = new InternalRegistration(null, null);
+        //private IPolicySet GetDefaultPolicies()
+        //{
+        //    var defaults = new InternalRegistration(null, null);
 
-            defaults.Set(typeof(IBuildPlanCreatorPolicy), new DynamicMethodBuildPlanCreatorPolicy(_buildPlanStrategies));
-            defaults.Set(typeof(IConstructorSelectorPolicy), new DefaultUnityConstructorSelectorPolicy());
-            defaults.Set(typeof(IPropertySelectorPolicy), new DefaultUnityPropertySelectorPolicy());
-            defaults.Set(typeof(IMethodSelectorPolicy), new DefaultUnityMethodSelectorPolicy());
+        //    defaults.Set(typeof(IBuildPlanCreatorPolicy), new DynamicMethodBuildPlanCreatorPolicy(_buildPlanStrategies));
+        //    defaults.Set(typeof(IConstructorSelectorPolicy), new DefaultUnityConstructorSelectorPolicy());
+        //    defaults.Set(typeof(IPropertySelectorPolicy), new DefaultUnityPropertySelectorPolicy());
+        //    defaults.Set(typeof(IMethodSelectorPolicy), new DefaultUnityMethodSelectorPolicy());
 
-            return defaults;
-        }
+        //    return defaults;
+        //}
 
         #endregion
 
 
         #region Implementation
-
-        private RegisterDelegate BuildRegisterPipeline()
-        {
-            RegisterDelegate method = null;
-            foreach (RegistrationFactoryDelegate factory in _registrationFactories)
-            {
-                method = factory(method);
-            }
-            return method;
-        }
-
 
         private void CreateAndSetPolicy(Type type, string name, Type policyInterface, IBuilderPolicy policy)
         {
@@ -429,23 +435,22 @@ namespace Unity
             return set;
         }
 
-
         private IPolicySet CreateRegistration(Type type, string name)
         {
-            RegistrationData data = new RegistrationData { Registration = new InternalRegistration(type, name) };
+            var registration = new InternalRegistration(type, name, _defaultPipelines);
 
-            _registerPipeline(this, ref data);
+            _registerPipeline(this, registration, type, name);
 
-            return (IPolicySet)data.Registration;
+            return registration;
         }
 
         private IPolicySet CreateRegistration(Type type, string name, Type policyInterface, IBuilderPolicy policy)
         {
-            RegistrationData data = new RegistrationData { Registration = new InternalRegistration(type, name, policyInterface, policy) };
+            var registration = new InternalRegistration(type, name, policyInterface, policy, _defaultPipelines);
 
-            _registerPipeline(this, ref data);
+            _registerPipeline(this, registration, type, name);
 
-            return (IPolicySet)data.Registration;
+            return registration;
         }
 
         #endregion

@@ -3,16 +3,17 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Unity.Builder;
+using Unity.Builder.Selection;
 using Unity.Builder.Strategy;
-using Unity.Injection;
 using Unity.Policy;
+using Unity.Resolution;
 using Unity.Storage;
 
 namespace Unity.Registration
 {
     [DebuggerDisplay("InternalRegistration:  Type={Type?.Name},    Name={Name}")]
-    public class InternalRegistration : IPolicySet, IEnumerable<object>,
-                                        INamedType
+    public class InternalRegistration : IPolicySet, IEnumerable<object>, IResolve,
+                                        INamedType, ITypeBuildInfo
     {
         #region Fields
 
@@ -24,26 +25,27 @@ namespace Unity.Registration
 
         #region Constructors
 
-        public InternalRegistration(Type type, string name)
+        public InternalRegistration(Type type, string name, LinkedNode<Type, object> next)
         {
             Name = name;
             Type = type;
 
             _hash = (Type?.GetHashCode() ?? 0 + 37) ^ (Name?.GetHashCode() ?? 0 + 17);
+            _next = next;
         }
 
-        public InternalRegistration(Type type, string name, Type policyInterface, object policy)
+        public InternalRegistration(Type type, string name, Type policyInterface, object policy, LinkedNode<Type, object> next)
         {
             Name = name;
             Type = type;
 
+            _hash = (Type?.GetHashCode() ?? 0 + 37) ^ (Name?.GetHashCode() ?? 0 + 17);
             _next = new LinkedNode<Type, object>
             {
                 Key = policyInterface,
-                Value = policy
+                Value = policy,
+                Next = next
             };
-
-            _hash = (Type?.GetHashCode() ?? 0 + 37) ^ (Name?.GetHashCode() ?? 0 + 17);
         }
 
         #endregion
@@ -51,9 +53,7 @@ namespace Unity.Registration
 
         #region Public Members
 
-        public ResolveDelegate Resolve { get; set; }
-
-        public Func<IUnityContainer, Type, string, object> Factory { get; private set; }
+        public ResolvePipeline Resolve { get; set; }
 
         public virtual IList<BuilderStrategy> BuildChain { get; set; }
 
@@ -66,15 +66,10 @@ namespace Unity.Registration
 
         public virtual object Get(Type policyInterface)
         {
-            if (typeof(IInjectionFactory).Equals(policyInterface))
-                return Factory;
-            else
+            for (var node = _next; node != null; node = node.Next)
             {
-                for (var node = _next; node != null; node = node.Next)
-                {
-                    if (ReferenceEquals(node.Key, policyInterface))
-                        return node.Value;
-                }
+                if (ReferenceEquals(node.Key, policyInterface))
+                    return node.Value;
             }
 
             return null;
@@ -82,19 +77,12 @@ namespace Unity.Registration
 
         public virtual void Set(Type policyInterface, object policy)
         {
-            if (typeof(IInjectionFactory).Equals(policyInterface))
+            _next = new LinkedNode<Type, object>
             {
-                Factory = (Func<IUnityContainer, Type, string, object>)policy;
-            }
-            else
-            {
-                _next = new LinkedNode<Type, object>
-                {
-                    Key = policyInterface,
-                    Value = policy,
-                    Next = _next
-                };
-            }
+                Key = policyInterface,
+                Value = policy,
+                Next = _next
+            };
         }
 
         public virtual void Clear(Type policyInterface)
@@ -156,6 +144,18 @@ namespace Unity.Registration
         {
             return new NamedTypeBuildKey(namedType.Type, namedType.Name);
         }
+
+        #endregion
+
+
+        #region ITypeBuildInfo
+
+        SelectedConstructor ITypeBuildInfo.Constructor { get; set; }
+
+        IEnumerable<SelectedProperty> ITypeBuildInfo.Properties { get; set; }
+
+        IEnumerable<SelectedMethod> ITypeBuildInfo.Methods { get; set; }
+
 
         #endregion
     }

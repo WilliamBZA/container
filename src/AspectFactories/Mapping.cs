@@ -2,6 +2,7 @@
 using System.Reflection;
 using Unity.Policy;
 using Unity.Registration;
+using Unity.Resolution;
 using Unity.Storage;
 
 namespace Unity
@@ -10,21 +11,19 @@ namespace Unity
     {
         public static class Mapping
         {
-            public static RegisterDelegate RegistrationAspectFactory(RegisterDelegate next)
+            public static RegisterPipeline RegistrationAspectFactory(RegisterPipeline next)
             {
-                return (IUnityContainer container, ref RegistrationData data) =>
+                return (IUnityContainer container, IPolicySet registration, Type type, string name) =>
                 {
-
                     // Build rest of pipeline
-                    if (null == next) return;
-                    next(container, ref data);
+                    next?.Invoke(container, registration, type, name);
                 };
             }
 
 
 
 
-            public static ResolveDelegate AspectFactory(InternalRegistration registration, ResolveDelegate next)
+            public static ResolvePipeline AspectFactory(InternalRegistration registration, ResolvePipeline next)
             {
                 if (registration is StaticRegistration staticRegistration)
                 {
@@ -38,12 +37,12 @@ namespace Unity
                         if (policy is IRequireBuildUpPolicy)
                             return (ref ResolutionContext context) =>
                             {
-                                context.Target = new LinkedNode<Type, IPolicySet>
-                                {
-                                    Key = staticRegistration.MappedToType,
-                                    Value = context.Registration,
-                                    Next = context.Target
-                                };
+                                //context.Target = new LinkedNode<Type, IPolicySet>
+                                //{
+                                //    Key = staticRegistration.MappedToType,
+                                //    Value = context.Registration,
+                                //    Next = context.Target
+                                //};
                                 return next(ref context);
                             };
                     }

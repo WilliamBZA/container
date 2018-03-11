@@ -1,42 +1,35 @@
 ﻿using System;
+using System.Collections.Generic;
 using Unity.Builder;
-using Unity.Lifetime;
-using Unity.Policy;
+using Unity.Builder.Selection;
 using Unity.Registration;
 using Unity.Resolution;
-using Unity.Storage;
 
 namespace Unity
 {
-    public ref struct ResolutionContext
+
+    public class ResolveInfo : INamedType
     {
-        public IUnityContainer Container;
+        public Type Type { get; set; }
 
-        public ILifetimeContainer LifetimeContainer;
+        public string Name { get; set; }
 
-        public IPolicySet Registration;
-
-        public ResolverOverride[] Overrides;
-
-        public LinkedNode<Type, IPolicySet> Target;
+        public ResolveInfo Previous { get; set; }
     }
 
-    public ref struct RegistrationData
+
+
+
+
+    public delegate ResolvePipeline AspectFactoryDelegate(InternalRegistration registration, ResolvePipeline resolveDelegate);
+
+    public interface ITypeBuildInfo
     {
-        public INamedType Registration;
+        SelectedConstructor Constructor { get; set; }
 
-        public Func<IUnityContainer, Type, string, object> Factory;
+        IEnumerable<SelectedProperty> Properties { get; set; }
 
-        public object Instance;
-
-        public InjectionMember[] InjectionMembers;
+        IEnumerable<SelectedMethod> Methods { get; set; }
     }
 
-    public delegate object ResolveDelegate(ref ResolutionContext context);
-
-    public delegate void RegisterDelegate(IUnityContainer container, ref RegistrationData data);
-
-    public delegate RegisterDelegate RegistrationFactoryDelegate(RegisterDelegate next);
-
-    public delegate ResolveDelegate AspectFactoryDelegate(InternalRegistration registration, ResolveDelegate resolveDelegate);
 }

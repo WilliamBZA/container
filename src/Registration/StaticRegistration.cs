@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using Unity.Injection;
 using Unity.Lifetime;
+using Unity.Storage;
 
 namespace Unity.Registration
 {
@@ -11,8 +12,8 @@ namespace Unity.Registration
     {
         #region Constructors
 
-        public StaticRegistration(Type registeredType, string name, Type mappedTo, LifetimeManager lifetimeManager)
-            : base(registeredType ?? mappedTo, string.IsNullOrEmpty(name) ? null : name, typeof(ILifetimePolicy), lifetimeManager)
+        public StaticRegistration(Type registeredType, string name, Type mappedTo, LifetimeManager lifetimeManager, LinkedNode<Type, object> next)
+            : base(registeredType ?? mappedTo, string.IsNullOrEmpty(name) ? null : name, typeof(ILifetimePolicy), lifetimeManager, next)
         {
             MappedToType = mappedTo;
             LifetimeManager = lifetimeManager;

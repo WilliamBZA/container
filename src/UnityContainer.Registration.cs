@@ -49,14 +49,21 @@ namespace Unity
                     Constants.TypesAreNotAssignable, typeFrom, typeTo), nameof(typeFrom));
             }
 
-            var registration = new StaticRegistration(typeFrom, name, typeTo, lifetimeManager);
-            RegistrationData data = new RegistrationData
-            {
-                Registration = registration,
-                InjectionMembers = injectionMembers
-            };
+            var registration = new StaticRegistration(typeFrom, name, typeTo, lifetimeManager, _defaultPipelines);
 
-            _registerPipeline(this, ref data);
+            // Add Injection Members
+            if (null != injectionMembers && 0 < injectionMembers.Length)
+            {
+                if (null != injectionMembers && injectionMembers.Length > 0)
+                {
+                    foreach (var member in injectionMembers)
+                    {
+                        member.AddPolicies(registration.RegisteredType, registration.Name, registration.MappedToType, registration);
+                    }
+                }
+            }
+
+            _registerPipeline(this, registration, registration.RegisteredType, registration.Name);
 
             return this;
         }
@@ -92,38 +99,11 @@ namespace Unity
 
             var type = instance.GetType();
             var lifetime = lifetimeManager ?? new ContainerControlledLifetimeManager();
+            if (lifetime.InUse) throw new InvalidOperationException(Constants.LifetimeManagerInUse);
+            lifetime.SetValue(instance);
+            var registration = new StaticRegistration(registeredType ?? type, name, type, lifetime, _defaultPipelines);
 
-            var registration = new StaticRegistration(registeredType ?? type, name, type, lifetime);
-            RegistrationData data = new RegistrationData
-            {
-                Registration = registration,
-                Instance = instance
-            };
-
-            _registerPipeline(this, ref data);
-
-            return this;
-        }
-
-        #endregion
-
-      
-        #region Factory Registration
-
-        public IUnityContainer RegisterFactory(Type registeredType, string name, Func<IUnityContainer, Type, string, object> factory, LifetimeManager lifetimeManager)
-        {
-            // Validate imput
-            if (string.Empty == name) name = null;
-            if (null == factory) throw new ArgumentNullException(nameof(factory));
-
-            var registration = new StaticRegistration(registeredType, name, null, lifetimeManager ?? TransientLifetimeManager.Instance);
-            RegistrationData data = new RegistrationData
-            {
-                Registration = registration,
-                Factory = factory
-            };
-
-            _registerPipeline(this, ref data);
+            _registerPipeline(this, registration, registration.RegisteredType, registration.Name);
 
             return this;
         }

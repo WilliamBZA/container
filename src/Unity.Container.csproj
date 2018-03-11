@@ -38,7 +38,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugType>Full</DebugType>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <TargetFrameworks>netstandard1.0;netstandard2.0;net46;net45;net40;netcoreapp1.0;netcoreapp2.0</TargetFrameworks>
+    <TargetFrameworks>netstandard1.0;netstandard2.0;net46;net45;netcoreapp1.0;netcoreapp2.0</TargetFrameworks>
   </PropertyGroup>
   
   <ItemGroup Condition="Exists('$(UnityAbstractions)')">

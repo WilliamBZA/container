@@ -37,9 +37,10 @@ namespace Unity
                 ResolutionContext context = new ResolutionContext
                 {
                     Container = this,
-                    LifetimeContainer = _lifetimeContainer,
-                    Overrides = resolverOverrides,
-                    Registration = registration
+                    Get = _getRegistration,
+                    Registration = registration,
+                    Type = type,
+                    Overrides = resolverOverrides
                 };
 
                 return registration.Resolve(ref context);
@@ -129,6 +130,25 @@ namespace Unity
             context.BuildComplete = true;
         }
 
+        #endregion
+
+
+        #region Constructor pipelene
+
+        public static SelectConstructorPipeline SelectConstructorPipelineFactory(SelectConstructorPipeline next)
+        {
+            return (IUnityContainer container, Type type, string name) => 
+            {
+                return next?.Invoke(container, type, name);
+
+                //return (TPolicyInterface)(list.GetPolicyForKey(typeof(TPolicyInterface), buildKey, out containingPolicyList)
+                //                          ?? (buildKey.Type.GetTypeInfo().IsGenericType
+                //                              ? list.Get(buildKey.Type.GetGenericTypeDefinition(), buildKey.Name, typeof(TPolicyInterface), out containingPolicyList) ??
+                //                                list.Get(null, null, typeof(TPolicyInterface), out containingPolicyList)
+                //                              : list.Get(null, null, typeof(TPolicyInterface), out containingPolicyList)));
+            };
+        }
+        
         #endregion
     }
 }
