@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Unity.Attributes;
-using Unity.Builder.Selection;
+using Unity.Dependency;
 
 namespace Unity.Select.Constructor
 {

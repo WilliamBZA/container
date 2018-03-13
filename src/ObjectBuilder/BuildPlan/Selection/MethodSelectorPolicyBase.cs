@@ -1,10 +1,9 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved. See License.txt in the project root for license information.
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Unity.Builder;
+using Unity.Dependency;
 using Unity.Policy;
 using Unity.Utility;
 
@@ -26,7 +25,7 @@ namespace Unity.ObjectBuilder.BuildPlan.Selection
         /// <param name="resolverPolicyDestination">The <see cref='IPolicyList'/> to add any
         /// generated resolver objects into.</param>
         /// <returns>Sequence of methods to call.</returns>
-        public virtual IEnumerable<Builder.Selection.SelectedMethod> SelectMethods(IBuilderContext context, IPolicyList resolverPolicyDestination)
+        public virtual IEnumerable<SelectedMethod> SelectMethods(IBuilderContext context, IPolicyList resolverPolicyDestination)
         {
             Type t = context.BuildKey.Type;
             var candidateMethods = t.GetMethodsHierarchical()
@@ -41,9 +40,9 @@ namespace Unity.ObjectBuilder.BuildPlan.Selection
             }
         }
 
-        private Builder.Selection.SelectedMethod CreateSelectedMethod(MethodInfo method)
+        private SelectedMethod CreateSelectedMethod(MethodInfo method)
         {
-            var result = new Builder.Selection.SelectedMethod(method);
+            var result = new SelectedMethod(method);
             foreach (ParameterInfo parameter in method.GetParameters())
             {
                 result.AddParameterResolver(this.CreateResolver(parameter));

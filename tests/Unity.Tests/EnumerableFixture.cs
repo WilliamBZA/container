@@ -2,9 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity;
-using Unity.Injection;
 using Unity.Lifetime;
+using Unity.Registration;
 using Unity.Tests.Generics;
 using Unity.Tests.TestObjects;
 

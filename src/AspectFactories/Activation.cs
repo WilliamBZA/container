@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Attributes;
-using Unity.Builder.Selection;
+using Unity.Dependency;
 using Unity.Policy;
 using Unity.Registration;
 using Unity.Resolution;

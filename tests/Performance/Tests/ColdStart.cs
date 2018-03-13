@@ -2,7 +2,7 @@
 using Runner.Setup;
 using System.Collections.Generic;
 using Unity;
-using Unity.Injection;
+using Unity.Registration;
 
 namespace Runner.Tests
 {

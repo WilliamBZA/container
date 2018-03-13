@@ -13,12 +13,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Abstractions\src\Unity.Abstractions.csproj" />
-    <ProjectReference Include="..\..\..\SpecificationTests\src\Unity.Specification.Tests.csproj" />
+    <ProjectReference Include="..\..\..\SpecificationTests\src\Unity.Specification.csproj" />
     <ProjectReference Include="..\..\src\Unity.Container.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Service Include="{82a7f48d-3b50-4b1e-b82e-3ada8210c358}" />
   </ItemGroup>
 
 </Project>

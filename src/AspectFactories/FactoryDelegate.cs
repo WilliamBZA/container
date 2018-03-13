@@ -1,12 +1,11 @@
 ﻿using System;
-using Unity.Injection;
 using Unity.Policy;
 using Unity.Registration;
 using Unity.Resolution;
 
 namespace Unity.AspectFactories
 {
-    public static class Factory
+    public static class FactoryDelegate
     {
         public static RegisterPipeline RegistrationAspectFactory(RegisterPipeline next)
         {

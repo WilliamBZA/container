@@ -110,7 +110,7 @@ namespace Unity
                                                                                            Properties.RegistrationAspectFactory,
                                                                                               Methods.RegistrationAspectFactory,
                                                                                               Mapping.RegistrationAspectFactory,
-                                                                                              Factory.RegistrationAspectFactory,
+                                                                                      FactoryDelegate.RegistrationAspectFactory,
                                                                                              Lifetime.RegistrationAspectFactory };
 
             _constructorPipelineFactories = new List<PipelineFactoryDelegate<SelectConstructorPipeline>> { SelectLongestConstructor.SelectConstructorPipelineFactory,

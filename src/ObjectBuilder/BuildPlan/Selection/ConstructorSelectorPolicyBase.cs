@@ -6,7 +6,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Unity.Builder;
-using Unity.Builder.Selection;
+using Unity.Dependency;
 using Unity.Policy;
 
 namespace Unity.ObjectBuilder.BuildPlan.Selection

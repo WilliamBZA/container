@@ -1,6 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved. See License.txt in the project root for license information.
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -8,8 +6,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Unity.Builder;
 using Unity.Builder.Operation;
-using Unity.Builder.Selection;
 using Unity.Builder.Strategy;
+using Unity.Dependency;
 using Unity.Exceptions;
 using Unity.Policy;
 

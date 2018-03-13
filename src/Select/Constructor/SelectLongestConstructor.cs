@@ -2,7 +2,7 @@
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using Unity.Builder.Selection;
+using Unity.Dependency;
 using Unity.Utility;
 
 namespace Unity.Select.Constructor

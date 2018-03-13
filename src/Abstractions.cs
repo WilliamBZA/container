@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using Unity.Builder;
-using Unity.Builder.Selection;
+using Unity.Dependency;
 using Unity.Registration;
-using Unity.Resolution;
 
 namespace Unity
 {
