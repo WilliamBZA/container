@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Dependency;
 using Unity.Policy;
@@ -42,7 +43,8 @@ namespace Unity.ObjectBuilder.BuildPlan.Selection
 
             foreach (ParameterInfo param in ctor.GetParameters())
             {
-                result.AddParameterResolver(CreateResolver(param));
+                // TODO:
+                //result.AddParameterResolver(CreateResolver(param));
             }
 
             return result;

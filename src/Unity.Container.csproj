@@ -53,4 +53,8 @@
     <PackageReference Include="System.ComponentModel" Version="4.3.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Select\" />
+  </ItemGroup>
+
 </Project>

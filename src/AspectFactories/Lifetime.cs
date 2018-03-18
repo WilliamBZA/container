@@ -1,5 +1,8 @@
 ﻿using System;
+using Unity.Build.Context;
+using Unity.Build.Pipeline;
 using Unity.Lifetime;
+using Unity.Pipeline;
 using Unity.Policy;
 using Unity.Registration;
 using Unity.Resolution;
@@ -43,14 +46,14 @@ namespace Unity
                     // Add aspect to resolver
                     var pipeline = ((InternalRegistration)registration).Resolve;
                     if (null == pipeline)
-                        ((InternalRegistration)registration).Resolve = (ref ResolutionContext context) => lifetime.GetValue(((UnityContainer)context.Container)._lifetimeContainer);
+                        ((InternalRegistration)registration).Resolve = (ref ResolutionContext context) => lifetime.GetValue(context.LifetimeContainer);
                     else
                         ((InternalRegistration)registration).Resolve = (ref ResolutionContext context) =>
                         {
-                            var value = lifetime.GetValue(((UnityContainer)context.Container)._lifetimeContainer);
+                            var value = lifetime.GetValue(context.LifetimeContainer);
                             if (null != value) return value;
                             value = pipeline(ref context);
-                            lifetime.SetValue(value, ((UnityContainer)context.Container)._lifetimeContainer);
+                            lifetime.SetValue(value, context.LifetimeContainer);
                             return value;
                         };
                 };

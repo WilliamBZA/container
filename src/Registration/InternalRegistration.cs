@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Unity.Build.Pipeline;
+using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Builder.Strategy;
 using Unity.Dependency;
@@ -53,7 +55,7 @@ namespace Unity.Registration
 
         #region Public Members
 
-        public ResolvePipeline Resolve { get; set; }
+        public Resolve Resolve { get; set; }
 
         public virtual IList<BuilderStrategy> BuildChain { get; set; }
 

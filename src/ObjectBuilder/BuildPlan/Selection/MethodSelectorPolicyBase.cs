@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Dependency;
 using Unity.Policy;
@@ -43,10 +44,11 @@ namespace Unity.ObjectBuilder.BuildPlan.Selection
         private SelectedMethod CreateSelectedMethod(MethodInfo method)
         {
             var result = new SelectedMethod(method);
-            foreach (ParameterInfo parameter in method.GetParameters())
-            {
-                result.AddParameterResolver(this.CreateResolver(parameter));
-            }
+            // TODO:
+            //foreach (ParameterInfo parameter in method.GetParameters())
+            //{
+            //    result.AddParameterResolver(this.CreateResolver(parameter));
+            //}
 
             return result;
         }

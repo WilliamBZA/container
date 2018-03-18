@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Builder.Operation;
 using Unity.Builder.Strategy;
@@ -78,21 +79,23 @@ namespace Unity.ObjectBuilder.BuildPlan.DynamicMethod.Method
 
         private IEnumerable<Expression> BuildMethodParameterExpressions(DynamicBuildPlanGenerationContext context, SelectedMethod method, string methodSignature)
         {
-            int i = 0;
-            var methodParameters = method.Method.GetParameters();
+            // TODO:
+            throw new NotImplementedException();
+            //int i = 0;
+            //var methodParameters = method.Method.GetParameters();
 
-            foreach (IResolverPolicy parameterResolver in method.GetParameterResolvers())
-            {
-                yield return context.CreateParameterExpression(
-                                parameterResolver,
-                                methodParameters[i].ParameterType,
-                                Expression.Call(null,
-                                    SetCurrentOperationToResolvingParameterMethod,
-                                    Expression.Constant(methodParameters[i].Name, typeof(string)),
-                                    Expression.Constant(methodSignature),
-                                    context.ContextParameter));
-                i++;
-            }
+            //foreach (IResolverPolicy parameterResolver in method.GetParameterResolvers())
+            //{
+            //    yield return context.CreateParameterExpression(
+            //                    parameterResolver,
+            //                    methodParameters[i].ParameterType,
+            //                    Expression.Call(null,
+            //                        SetCurrentOperationToResolvingParameterMethod,
+            //                        Expression.Constant(methodParameters[i].Name, typeof(string)),
+            //                        Expression.Constant(methodSignature),
+            //                        context.ContextParameter));
+            //    i++;
+            //}
         }
 
         private static void GuardMethodIsNotOpenGeneric(MethodInfo method)

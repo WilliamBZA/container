@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using Unity.Build.Pipeline;
+using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Dependency;
 using Unity.Registration;
@@ -20,7 +22,7 @@ namespace Unity
 
 
 
-    public delegate ResolvePipeline AspectFactoryDelegate(InternalRegistration registration, ResolvePipeline resolveDelegate);
+    public delegate Resolve AspectFactoryDelegate(InternalRegistration registration, Resolve resolveDelegate);
 
     public interface ITypeBuildInfo
     {

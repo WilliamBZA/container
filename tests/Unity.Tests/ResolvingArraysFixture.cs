@@ -2,6 +2,7 @@
 using Microsoft.Practices.Unity.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Unity;
+using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Builder.Strategy;
 using Unity.Dependency;
@@ -178,7 +179,8 @@ namespace Microsoft.Practices.Unity.Tests
             {
                 var ctr = typeof(InjectedObject).GetMatchingConstructor(new[] { typeof(object) });
                 var selectedConstructor = new SelectedConstructor(ctr);
-                selectedConstructor.AddParameterResolver(this.resolverPolicy);
+                // TODO:
+                //selectedConstructor.AddParameterResolver(this.resolverPolicy);
 
                 return selectedConstructor;
             }

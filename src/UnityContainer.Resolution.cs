@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Unity.Build.Context;
+using Unity.Build.Pipeline;
 using Unity.Builder;
 using Unity.Exceptions;
+using Unity.Pipeline;
 using Unity.Registration;
 using Unity.Resolution;
 
@@ -32,18 +35,55 @@ namespace Unity
 
             try
             {
+                Type ResolvingType = type;
+                //VerifyPipeline<Type> Verify = (Type t) => {};
                 var registration = GetRegistration(type, name);
 
-                ResolutionContext context = new ResolutionContext
+                ResolveDependency Resolve = (Type t, string n) =>
                 {
-                    Container = this,
-                    Get = _getRegistration,
-                    Registration = registration,
-                    Type = type,
-                    Overrides = resolverOverrides
+                    // Verify if can resolve this type
+                    //Verify(t);
+
+                    // Cache old values
+                    //VerifyPipeline<Type> parentVerify = Verify;
+                    Type parentResolvingType = ResolvingType;
+
+                    try
+                    {
+                        ResolutionContext context = new ResolutionContext
+                        {
+                            LifetimeContainer = _lifetimeContainer,
+
+                            Registration = GetRegistration(t, n),
+                            ImplementationType = t,
+                            DeclaringType = ResolvingType,
+                        };
+
+                        ResolvingType = t;
+                        //Verify = (Type vT) => { if (ResolvingType == vT) throw new InvalidOperationException(); };
+
+                        return ((IResolve)context.Registration).Resolve(ref context);
+                    }
+                    finally
+                    {
+                        //Verify = parentVerify;
+                        ResolvingType = parentResolvingType;
+                    }
+
                 };
 
-                return registration.Resolve(ref context);
+                ResolutionContext rootContext = new ResolutionContext
+                {
+                    LifetimeContainer = _lifetimeContainer,
+
+                    Registration = registration,
+                    ImplementationType = type,
+                    DeclaringType = null,
+
+                    Resolve = Resolve
+                };
+
+                return registration.Resolve(ref rootContext);
             }
             catch (Exception ex)
             {
@@ -52,6 +92,9 @@ namespace Unity
         }
 
         #endregion
+
+
+
 
 
         #region BuildUp existing object
@@ -135,11 +178,11 @@ namespace Unity
 
         #region Constructor pipelene
 
-        public static SelectConstructorPipeline SelectConstructorPipelineFactory(SelectConstructorPipeline next)
+        public static SelectConstructor SelectConstructorPipelineFactory(SelectConstructor next)
         {
-            return (IUnityContainer container, Type type, string name) => 
+            return (Type type) => 
             {
-                return next?.Invoke(container, type, name);
+                return next?.Invoke(type);
 
                 //return (TPolicyInterface)(list.GetPolicyForKey(typeof(TPolicyInterface), buildKey, out containingPolicyList)
                 //                          ?? (buildKey.Type.GetTypeInfo().IsGenericType

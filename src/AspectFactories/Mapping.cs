@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Reflection;
+using Unity.Build.Context;
+using Unity.Build.Pipeline;
 using Unity.Policy;
 using Unity.Registration;
-using Unity.Resolution;
-using Unity.Storage;
 
 namespace Unity
 {
@@ -23,7 +23,7 @@ namespace Unity
 
 
 
-            public static ResolvePipeline AspectFactory(InternalRegistration registration, ResolvePipeline next)
+            public static Resolve AspectFactory(InternalRegistration registration, Resolve next)
             {
                 if (registration is StaticRegistration staticRegistration)
                 {

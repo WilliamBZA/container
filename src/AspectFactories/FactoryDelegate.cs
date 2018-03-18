@@ -1,4 +1,7 @@
 ﻿using System;
+using Unity.Build.Context;
+using Unity.Build.Pipeline;
+using Unity.Pipeline;
 using Unity.Policy;
 using Unity.Registration;
 using Unity.Resolution;
@@ -15,11 +18,11 @@ namespace Unity.AspectFactories
                 switch (registration.Get(typeof(IInjectionFactory)))
                 {
                     case Func<IUnityContainer, Type, string, object> function:
-                        ((InternalRegistration)registration).Resolve = (ref ResolutionContext context) => function(context.Container, type, name);
+                        ((InternalRegistration)registration).Resolve = (ref ResolutionContext context) => function(context.LifetimeContainer.Container, type, name);
                         break;
 
                     case InjectionFactory injectionFactory:
-                        ((InternalRegistration)registration).Resolve = (ref ResolutionContext context) => injectionFactory.Factory(context.Container, type, name);
+                        ((InternalRegistration)registration).Resolve = (ref ResolutionContext context) => injectionFactory.Factory(context.LifetimeContainer.Container, type, name);
                         break;
 
                     default:

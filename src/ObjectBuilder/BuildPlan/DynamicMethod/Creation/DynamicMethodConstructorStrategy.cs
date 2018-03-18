@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Builder.Operation;
 using Unity.Builder.Strategy;
@@ -181,21 +182,23 @@ namespace Unity.ObjectBuilder.BuildPlan.DynamicMethod.Creation
 
         private IEnumerable<Expression> BuildConstructionParameterExpressions(DynamicBuildPlanGenerationContext buildContext, SelectedConstructor selectedConstructor, string constructorSignature)
         {
-            int i = 0;
-            var constructionParameters = selectedConstructor.Constructor.GetParameters();
+            // TODO:
+            throw new NotImplementedException();
 
-            foreach (IResolverPolicy parameterResolver in selectedConstructor.GetParameterResolvers())
-            {
-                yield return buildContext.CreateParameterExpression(
-                                parameterResolver,
-                                constructionParameters[i].ParameterType,
-                                Expression.Call(null,
-                                                SetCurrentOperationToResolvingParameterMethod,
-                                                Expression.Constant(constructionParameters[i].Name, typeof(string)),
-                                                Expression.Constant(constructorSignature),
-                                                buildContext.ContextParameter));
-                i++;
-            }
+            //int i = 0;
+            //var constructionParameters = selectedConstructor.Constructor.GetParameters();
+            //foreach (IResolverPolicy parameterResolver in selectedConstructor.GetParameterResolvers())
+            //{
+            //    yield return buildContext.CreateParameterExpression(
+            //                    parameterResolver,
+            //                    constructionParameters[i].ParameterType,
+            //                    Expression.Call(null,
+            //                                    SetCurrentOperationToResolvingParameterMethod,
+            //                                    Expression.Constant(constructionParameters[i].Name, typeof(string)),
+            //                                    Expression.Constant(constructorSignature),
+            //                                    buildContext.ContextParameter));
+            //    i++;
+            //}
         }
 
         /// <summary>

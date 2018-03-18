@@ -5,6 +5,7 @@ using System.Reflection;
 using Microsoft.Practices.ObjectBuilder2.Tests.TestDoubles;
 using Microsoft.Practices.Unity.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Dependency;
 using Unity.ObjectBuilder.BuildPlan.Selection;

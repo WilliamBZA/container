@@ -4,6 +4,8 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Unity.AspectFactories;
+using Unity.Build.Factory;
+using Unity.Build.Pipeline;
 using Unity.Builder;
 using Unity.Builder.Strategy;
 using Unity.Container;
@@ -14,6 +16,7 @@ using Unity.Extension;
 using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Creation;
 using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Method;
 using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Property;
+using Unity.Pipeline;
 using Unity.Policy;
 using Unity.Registration;
 using Unity.Select.Constructor;
@@ -47,7 +50,7 @@ namespace Unity
 
         // Factories
         private IList<PipelineFactoryDelegate<RegisterPipeline>> _registrationFactories;
-        private IList<PipelineFactoryDelegate<SelectConstructorPipeline>> _constructorPipelineFactories;
+        private IList<PipelineFactoryDelegate<SelectConstructor>> _constructorPipelineFactories;
 
         // Pipelines
         private RegisterPipeline _registerPipeline;
@@ -105,24 +108,20 @@ namespace Unity
             _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(ContainerInitialCapacity);
 
             // Factories
-            _registrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { Activation.RegistrationAspectFactory,
-                                                                                             Creation.RegistrationAspectFactory,
-                                                                                           Properties.RegistrationAspectFactory,
-                                                                                              Methods.RegistrationAspectFactory,
-                                                                                              Mapping.RegistrationAspectFactory,
-                                                                                      FactoryDelegate.RegistrationAspectFactory,
-                                                                                             Lifetime.RegistrationAspectFactory };
+            _registrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { AspectFactories.Build.RegistrationAspectFactory,
+                                                                                                         Mapping.RegistrationAspectFactory,
+                                                                                                 FactoryDelegate.RegistrationAspectFactory,
+                                                                                                        Lifetime.RegistrationAspectFactory };
 
-            _constructorPipelineFactories = new List<PipelineFactoryDelegate<SelectConstructorPipeline>> { SelectLongestConstructor.SelectConstructorPipelineFactory,
-                                                                                                      SelectLongestConstructorSmart.SelectConstructorPipelineFactory,
-                                                                                                         SelectInjectionConstructor.SelectConstructorPipelineFactory,
-                                                                                                                     UnityContainer.SelectConstructorPipelineFactory };
+            _constructorPipelineFactories = new List<PipelineFactoryDelegate<SelectConstructor>> { SelectLongestConstructor.SelectConstructorPipelineFactory,
+                                                                                                 SelectInjectionConstructor.SelectConstructorPipelineFactory,
+                                                                                                             UnityContainer.SelectConstructorPipelineFactory };
             // Pipelines
             _registerPipeline = _registrationFactories.BuildPipeline();
             _getRegistration = GetOrAdd;
             _defaultPipelines = new LinkedNode<Type, object>
             {
-                Key = typeof(SelectConstructorPipeline),
+                Key = typeof(SelectConstructor),
                 Value = _constructorPipelineFactories.BuildPipeline()
             };
 
