@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Unity.Build.Context;
 using Unity.Build.Pipeline;
+using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Exceptions;
 using Unity.Pipeline;
@@ -62,7 +63,7 @@ namespace Unity
                         ResolvingType = t;
                         //Verify = (Type vT) => { if (ResolvingType == vT) throw new InvalidOperationException(); };
 
-                        return ((IResolve)context.Registration).Resolve(ref context);
+                        return ((IResolveMethod)context.Registration).ResolveMethod(ref context);
                     }
                     finally
                     {
@@ -83,7 +84,7 @@ namespace Unity
                     Resolve = Resolve
                 };
 
-                return registration.Resolve(ref rootContext);
+                return registration.ResolveMethod(ref rootContext);
             }
             catch (Exception ex)
             {
@@ -92,9 +93,6 @@ namespace Unity
         }
 
         #endregion
-
-
-
 
 
         #region BuildUp existing object
@@ -173,25 +171,6 @@ namespace Unity
             context.BuildComplete = true;
         }
 
-        #endregion
-
-
-        #region Constructor pipelene
-
-        public static SelectConstructor SelectConstructorPipelineFactory(SelectConstructor next)
-        {
-            return (Type type) => 
-            {
-                return next?.Invoke(type);
-
-                //return (TPolicyInterface)(list.GetPolicyForKey(typeof(TPolicyInterface), buildKey, out containingPolicyList)
-                //                          ?? (buildKey.Type.GetTypeInfo().IsGenericType
-                //                              ? list.Get(buildKey.Type.GetGenericTypeDefinition(), buildKey.Name, typeof(TPolicyInterface), out containingPolicyList) ??
-                //                                list.Get(null, null, typeof(TPolicyInterface), out containingPolicyList)
-                //                              : list.Get(null, null, typeof(TPolicyInterface), out containingPolicyList)));
-            };
-        }
-        
         #endregion
     }
 }

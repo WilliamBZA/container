@@ -3,17 +3,19 @@ using System.Globalization;
 using System.Reflection;
 using Unity.Build.Pipeline;
 using Unity.Build.Selected;
+using Unity.Build.Selection.Constructor;
+using Unity.Registration;
 
 namespace Unity.Select.Constructor
 {
     public static class SelectLongestConstructor
     {
-        public static SelectConstructor SelectConstructorPipelineFactory(SelectConstructor next)
+        public static SelectConstructorPipeline SelectConstructorPipelineFactory(SelectConstructorPipeline next)
         {
-            // Create Factory Method registration aspect
-            return (Type type) =>
+            return (IUnityContainer container, InternalRegistration registration) =>
             {
                 int max = -1;
+                var type = registration.Type;
                 ConstructorInfo secondBest = null;
                 ConstructorInfo constructor = null;
                 foreach (var ctor in type.GetTypeInfo().DeclaredConstructors)
@@ -28,11 +30,11 @@ namespace Unity.Select.Constructor
                     constructor = ctor;
                 }
 
-                if (null != secondBest && !ReferenceEquals(secondBest, constructor) && 
+                if (null != secondBest && !ReferenceEquals(secondBest, constructor) &&
                      max == secondBest.GetParameters().Length)
                 {
                     // Give next handler a chance to resolve
-                    var result = next?.Invoke(type);
+                    var result = next?.Invoke(container, registration);
                     if (null != result) return result;
 
                     throw new InvalidOperationException(

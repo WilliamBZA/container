@@ -4,6 +4,8 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Unity.Attributes;
+using Unity.Build.Selected;
+using Unity.Registration;
 using Unity.Select.Constructor;
 
 namespace Unity.Container.Tests.Pipeline.Selection
@@ -35,49 +37,42 @@ namespace Unity.Container.Tests.Pipeline.Selection
 
         [DataTestMethod]
         [DynamicData(nameof(TestMethodInput))]
-        public void Container_Pipeline_Selection_SelectLongestConstructor(int test, Type type, int index)
+        public void Container_Build_Selection_SelectLongestConstructor(int test, Type type, int index)
         {
             var ctors = type.GetTypeInfo().DeclaredConstructors.ToArray();
+            var ctor = new SelectedConstructor(ctors[index]);
             var selector = SelectLongestConstructor.SelectConstructorPipelineFactory(null);
-            var selection = selector(type);
+            var registration = new InternalRegistration(type, null);
+            var selection = selector(null, registration);
 
-            Assert.AreEqual(index, Array.IndexOf(ctors, selection.Constructor));
+            Assert.AreEqual(ctor.Constructor, selection.Constructor);
         }
 
         [DataTestMethod]
         [DynamicData(nameof(TestMethodFailInput))]
         [ExpectedException(typeof(InvalidOperationException))]
-        public void Container_Pipeline_Selection_SelectLongestConstructor_fail(int test, Type type)
+        public void Container_Build_Selection_SelectLongestConstructor_fail(int test, Type type)
         {
-            var ctors = type.GetTypeInfo().DeclaredConstructors.ToArray();
             var selector = SelectLongestConstructor.SelectConstructorPipelineFactory(null);
-            var selection = selector(type);
+            var registration = new InternalRegistration(type, null);
+            var selection = selector(null, registration);
         }
 
 
 
         [DataTestMethod]
         [DynamicData(nameof(TestMethodInput))]
-        public void Container_Pipeline_Selection_SelectInjectionConstructor(int test, Type type, int index)
+        public void Container_Build_Selection_SelectInjectionConstructor(int test, Type type, int index)
         {
             var ctors = type.GetTypeInfo().DeclaredConstructors.ToArray();
-            var selector = SelectInjectionConstructor.SelectConstructorPipelineFactory(null);
-            var selection = selector(type);
+            var ctor = new SelectedConstructor(ctors[index]);
+            var selector = SelectInjectionMembers.SelectConstructorPipelineFactory(null);
+            var registration = new InternalRegistration(type, null, typeof(SelectedConstructor), ctor);
+            var selection = selector(null, registration);
 
-            Assert.AreEqual(index, Array.IndexOf(ctors, selection.Constructor));
+            Assert.AreEqual(ctor, selection);
         }
 
-        [DataTestMethod]
-        [DynamicData(nameof(TestMethodFailInput))]
-        [ExpectedException(typeof(InvalidOperationException))]
-        public void Container_Pipeline_Selection_SelectInjectionConstructor_fail(int test, Type type)
-        {
-            var ctors = type.GetTypeInfo().DeclaredConstructors.ToArray();
-            var selector = SelectInjectionConstructor.SelectConstructorPipelineFactory(null);
-            var selection = selector(type);
-        }
-
-        
 
         #region Test Data
 

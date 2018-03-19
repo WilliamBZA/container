@@ -13,17 +13,17 @@ namespace Unity
         {
             public static RegisterPipeline RegistrationAspectFactory(RegisterPipeline next)
             {
-                return (IUnityContainer container, IPolicySet registration, Type type, string name) =>
+                return (IUnityContainer container, IPolicySet set, Type type, string name) =>
                 {
                     // Build rest of pipeline
-                    next?.Invoke(container, registration, type, name);
+                    next?.Invoke(container, set, type, name);
                 };
             }
 
 
 
 
-            public static Resolve AspectFactory(InternalRegistration registration, Resolve next)
+            public static ResolveMethod AspectFactory(InternalRegistration registration, ResolveMethod next)
             {
                 if (registration is StaticRegistration staticRegistration)
                 {
@@ -31,20 +31,18 @@ namespace Unity
                         return next;
 
                     // Analyse Static Registration
-                    foreach (var policy in registration)
+                    foreach (var policy in registration.OfType<IRequireBuildUpPolicy>())
                     {
-                        // Build MappedTo type
-                        if (policy is IRequireBuildUpPolicy)
-                            return (ref ResolutionContext context) =>
-                            {
-                                //context.Target = new LinkedNode<Type, IPolicySet>
-                                //{
-                                //    Key = staticRegistration.MappedToType,
-                                //    Value = context.Registration,
-                                //    Next = context.Target
-                                //};
-                                return next(ref context);
-                            };
+                        return (ref ResolutionContext context) =>
+                        {
+                            //context.Target = new LinkedNode<Type, IPolicySet>
+                            //{
+                            //    Key = staticRegistration.MappedToType,
+                            //    Value = context.Registration,
+                            //    Next = context.Target
+                            //};
+                            return next(ref context);
+                        };
                     }
 
                     // Resolve MappedTo type

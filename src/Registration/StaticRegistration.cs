@@ -11,8 +11,8 @@ namespace Unity.Registration
     {
         #region Constructors
 
-        public StaticRegistration(Type registeredType, string name, Type mappedTo, LifetimeManager lifetimeManager, LinkedNode<Type, object> next)
-            : base(registeredType ?? mappedTo, string.IsNullOrEmpty(name) ? null : name, typeof(ILifetimePolicy), lifetimeManager, next)
+        public StaticRegistration(Type registeredType, string name, Type mappedTo, LifetimeManager lifetimeManager)
+            : base(registeredType ?? mappedTo, string.IsNullOrEmpty(name) ? null : name, typeof(ILifetimePolicy), lifetimeManager)
         {
             MappedToType = mappedTo;
             LifetimeManager = lifetimeManager;

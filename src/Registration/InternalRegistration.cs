@@ -2,20 +2,20 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Unity.Build.Factory;
 using Unity.Build.Pipeline;
 using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Builder.Strategy;
-using Unity.Dependency;
 using Unity.Policy;
-using Unity.Resolution;
 using Unity.Storage;
 
 namespace Unity.Registration
 {
     [DebuggerDisplay("InternalRegistration:  Type={Type?.Name},    Name={Name}")]
-    public class InternalRegistration : IPolicySet, IEnumerable<object>, IResolve,
-                                        INamedType, ITypeBuildInfo
+    public class InternalRegistration : IPolicySet,
+                                        INamedType,
+                                        IResolveMethod
     {
         #region Fields
 
@@ -27,16 +27,15 @@ namespace Unity.Registration
 
         #region Constructors
 
-        public InternalRegistration(Type type, string name, LinkedNode<Type, object> next)
+        public InternalRegistration(Type type, string name)
         {
             Name = name;
             Type = type;
 
             _hash = (Type?.GetHashCode() ?? 0 + 37) ^ (Name?.GetHashCode() ?? 0 + 17);
-            _next = next;
         }
 
-        public InternalRegistration(Type type, string name, Type policyInterface, object policy, LinkedNode<Type, object> next)
+        public InternalRegistration(Type type, string name, Type policyInterface, object policy)
         {
             Name = name;
             Type = type;
@@ -45,8 +44,7 @@ namespace Unity.Registration
             _next = new LinkedNode<Type, object>
             {
                 Key = policyInterface,
-                Value = policy,
-                Next = next
+                Value = policy
             };
         }
 
@@ -55,7 +53,7 @@ namespace Unity.Registration
 
         #region Public Members
 
-        public Resolve Resolve { get; set; }
+        public ResolveMethod ResolveMethod { get; set; }
 
         public virtual IList<BuilderStrategy> BuildChain { get; set; }
 
@@ -108,18 +106,17 @@ namespace Unity.Registration
         #endregion
 
 
-        #region IEnumerable
+        #region Enumerable
 
-
-        public IEnumerator<object> GetEnumerator()
+        public IEnumerable<object> OfType<T>()
         {
             for (var node = _next; node != null; node = node.Next)
             {
+                if (!typeof(T).Equals(node.Key)) continue;
+
                 yield return node.Value;
             }
         }
-
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         #endregion
 
@@ -149,16 +146,5 @@ namespace Unity.Registration
 
         #endregion
 
-
-        #region ITypeBuildInfo
-
-        SelectedConstructor ITypeBuildInfo.Constructor { get; set; }
-
-        IEnumerable<SelectedProperty> ITypeBuildInfo.Properties { get; set; }
-
-        IEnumerable<SelectedMethod> ITypeBuildInfo.Methods { get; set; }
-
-
-        #endregion
     }
 }

@@ -49,7 +49,7 @@ namespace Unity
                     Constants.TypesAreNotAssignable, typeFrom, typeTo), nameof(typeFrom));
             }
 
-            var registration = new StaticRegistration(typeFrom, name, typeTo, lifetimeManager, _defaultPipelines);
+            var registration = new StaticRegistration(typeFrom, name, typeTo, lifetimeManager);
 
             // Add Injection Members
             if (null != injectionMembers && 0 < injectionMembers.Length)
@@ -101,7 +101,7 @@ namespace Unity
             var lifetime = lifetimeManager ?? new ContainerControlledLifetimeManager();
             if (lifetime.InUse) throw new InvalidOperationException(Constants.LifetimeManagerInUse);
             lifetime.SetValue(instance);
-            var registration = new StaticRegistration(registeredType ?? type, name, type, lifetime, _defaultPipelines);
+            var registration = new StaticRegistration(registeredType ?? type, name, type, lifetime);
 
             _registerPipeline(this, registration, registration.RegisteredType, registration.Name);
 

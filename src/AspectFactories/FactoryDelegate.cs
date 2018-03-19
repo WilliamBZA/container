@@ -13,20 +13,20 @@ namespace Unity.AspectFactories
         public static RegisterPipeline RegistrationAspectFactory(RegisterPipeline next)
         {
             // Create Factory Method registration aspect
-            return (IUnityContainer container, IPolicySet registration, Type type, string name) =>
+            return (IUnityContainer container, IPolicySet set, Type type, string name) =>
             {
-                switch (registration.Get(typeof(IInjectionFactory)))
+                switch (set.Get(typeof(IInjectionFactory)))
                 {
                     case Func<IUnityContainer, Type, string, object> function:
-                        ((InternalRegistration)registration).Resolve = (ref ResolutionContext context) => function(context.LifetimeContainer.Container, type, name);
+                        ((InternalRegistration)set).ResolveMethod = (ref ResolutionContext context) => function(context.LifetimeContainer.Container, type, name);
                         break;
 
                     case InjectionFactory injectionFactory:
-                        ((InternalRegistration)registration).Resolve = (ref ResolutionContext context) => injectionFactory.Factory(context.LifetimeContainer.Container, type, name);
+                        ((InternalRegistration)set).ResolveMethod = (ref ResolutionContext context) => injectionFactory.Factory(context.LifetimeContainer.Container, type, name);
                         break;
 
                     default:
-                        next?.Invoke(container, registration, type, name);
+                        next?.Invoke(container, set, type, name);
                         break;
                 }
             };
