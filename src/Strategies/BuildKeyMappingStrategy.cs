@@ -102,19 +102,19 @@ namespace Unity.Strategies
 
         private bool AnalysStaticRegistration(IUnityContainer container, StaticRegistration registration, params InjectionMember[] injectionMembers)
         {
-            // Validate imput
-            if (null == registration.MappedToType || registration.RegisteredType == registration.MappedToType) return false;
+            //// Validate imput
+            //if (null == registration.MappedToType || registration.RegisteredType == registration.MappedToType) return false;
 
-            // Require Re-Resolve if no injectors specified
-            var buildRequired = registration.LifetimeManager is IRequireBuildUpPolicy ||
-                (null == injectionMembers ? false : injectionMembers.Any(m => m.BuildRequired));
+            //// Require Re-Resolve if no injectors specified
+            //var buildRequired = registration.LifetimeManager is IRequireBuildUpPolicy ||
+            //    (null == injectionMembers ? false : injectionMembers.Any(m => m.BuildRequired));
 
-            // Set mapping policy
-            var policy = registration.RegisteredType.GetTypeInfo().IsGenericTypeDefinition &&
-                         registration.MappedToType.GetTypeInfo().IsGenericTypeDefinition
-                       ? new GenericTypeBuildKeyMappingPolicy(registration.MappedToType, registration.Name, buildRequired)
-                       : (IBuildKeyMappingPolicy)new BuildKeyMappingPolicy(registration.MappedToType, registration.Name, buildRequired);
-            registration.Set(typeof(IBuildKeyMappingPolicy), policy);
+            //// Set mapping policy
+            //var policy = registration.RegisteredType.GetTypeInfo().IsGenericTypeDefinition &&
+            //             registration.MappedToType.GetTypeInfo().IsGenericTypeDefinition
+            //           ? new GenericTypeBuildKeyMappingPolicy(registration.MappedToType, registration.Name, buildRequired)
+            //           : (IBuildKeyMappingPolicy)new BuildKeyMappingPolicy(registration.MappedToType, registration.Name, buildRequired);
+            //registration.Set(typeof(IBuildKeyMappingPolicy), policy);
 
             return true;
         }

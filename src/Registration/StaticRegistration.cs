@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using Unity.Lifetime;
-using Unity.Storage;
 
 namespace Unity.Registration
 {
@@ -12,10 +11,10 @@ namespace Unity.Registration
         #region Constructors
 
         public StaticRegistration(Type registeredType, string name, Type mappedTo, LifetimeManager lifetimeManager)
-            : base(registeredType ?? mappedTo, string.IsNullOrEmpty(name) ? null : name, typeof(ILifetimePolicy), lifetimeManager)
+            : base(registeredType ?? mappedTo, string.IsNullOrEmpty(name) ? null : name)
         {
             MappedToType = mappedTo;
-            LifetimeManager = lifetimeManager;
+            LifetimeManager = lifetimeManager ?? TransientLifetimeManager.Instance;
             LifetimeManager.InUse = true;
         }
 
@@ -43,6 +42,14 @@ namespace Unity.Registration
 
 
         #region IPolicySet
+
+        public override object Get(Type policyInterface)
+        {
+            if (typeof(ILifetimePolicy) == policyInterface)
+                return LifetimeManager;
+
+            return base.Get(policyInterface);
+        }
 
         public override void Set(Type policyInterface, object policy)
         {

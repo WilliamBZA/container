@@ -13,12 +13,14 @@ namespace Unity
     {
         public static class Lifetime
         {
-            public static RegisterPipeline RegistrationAspectFactory(RegisterPipeline next)
+            public static RegisterPipeline LifetimeAspectFactory(RegisterPipeline next)
             {
                 // Create Lifetime registration aspect
                 return (IUnityContainer container, IPolicySet set, Type type, string name) =>
                 {
-                    var lifetime = (LifetimeManager)set.Get(typeof(ILifetimePolicy));
+                    var lifetime = set is StaticRegistration staticRegistration 
+                                 ? staticRegistration.LifetimeManager 
+                                 : (LifetimeManager)set.Get(typeof(ILifetimePolicy));
 
                     // Add to appropriate storage
                     var target = (lifetime is ISingletonLifetimePolicy) ? ((UnityContainer)container)._root : container;

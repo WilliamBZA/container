@@ -114,9 +114,9 @@ namespace Unity
 
             // Factories
             _registrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { RegistrationBuildAspect,
-                                                                                   Mapping.RegistrationAspectFactory,
-                                                                           FactoryDelegate.RegistrationAspectFactory,
-                                                                                  Lifetime.RegistrationAspectFactory };
+                                                                                   Mapping.MappingAspectFactory,
+                                                                           FactoryDelegate.FactoryDelegateAspectFactory,
+                                                                                  Lifetime.LifetimeAspectFactory };
 
             _selectConstructorFactories = new List<PipelineFactoryDelegate<SelectConstructorPipeline>> { SelectLongestConstructor.SelectConstructorPipelineFactory,
                                                                                                           SelectAttributedMembers.SelectConstructorPipelineFactory,

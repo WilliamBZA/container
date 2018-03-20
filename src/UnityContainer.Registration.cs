@@ -40,8 +40,7 @@ namespace Unity
             // Validate imput
             if (string.Empty == name) name = null; 
             if (null == typeTo) throw new ArgumentNullException(nameof(typeTo));
-            if (null == lifetimeManager) lifetimeManager = TransientLifetimeManager.Instance; 
-            if (lifetimeManager.InUse) throw new InvalidOperationException(Constants.LifetimeManagerInUse);
+            if (lifetimeManager is LifetimeManager manager && manager.InUse) throw new InvalidOperationException(Constants.LifetimeManagerInUse);
             if (typeFrom != null && !typeFrom.GetTypeInfo().IsGenericType && !typeTo.GetTypeInfo().IsGenericType && 
                                     !typeFrom.GetTypeInfo().IsAssignableFrom(typeTo.GetTypeInfo()))
             {

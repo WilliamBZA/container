@@ -51,7 +51,8 @@ namespace Unity
 
                     try
                     {
-                        ResolutionContext context = new ResolutionContext
+                        Func<Type, string, Type, object> getMethod = (Type tt, string na, Type i) => _get(tt, na, i);
+                        ResolutionContext context = new ResolutionContext(getMethod, null)
                         {
                             LifetimeContainer = _lifetimeContainer,
 
@@ -84,7 +85,7 @@ namespace Unity
                     Resolve = Resolve
                 };
 
-                return registration.ResolveMethod(ref rootContext);
+                return registration.ResolveMethod?.Invoke(ref rootContext);
             }
             catch (Exception ex)
             {

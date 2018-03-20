@@ -15,7 +15,9 @@ namespace Unity.Select.Constructor
             return (IUnityContainer container, InternalRegistration registration) =>
             {
                 int max = -1;
-                var type = registration.Type;
+                var type = registration is StaticRegistration staticRegistration 
+                         ? (staticRegistration.MappedToType ?? staticRegistration.Type) 
+                         : registration.Type;
                 ConstructorInfo secondBest = null;
                 ConstructorInfo constructor = null;
                 foreach (var ctor in type.GetTypeInfo().DeclaredConstructors)

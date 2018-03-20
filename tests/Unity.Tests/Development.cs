@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Collections.Generic;
 using Unity.Tests.TestObjects;
 
 namespace Unity.Tests
@@ -11,7 +12,9 @@ namespace Unity.Tests
         [TestMethod]
         public void Development_CurrentTest()
         {
-            Assert.IsNotNull(_container.Resolve<Service1>());
+            _container.RegisterType(typeof(IList<>), typeof(List<>));
+
+            Assert.IsNotNull(_container.Resolve<IList<object>>());
         }
 
 

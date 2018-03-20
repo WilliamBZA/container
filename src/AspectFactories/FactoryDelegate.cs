@@ -10,7 +10,7 @@ namespace Unity.AspectFactories
 {
     public static class FactoryDelegate
     {
-        public static RegisterPipeline RegistrationAspectFactory(RegisterPipeline next)
+        public static RegisterPipeline FactoryDelegateAspectFactory(RegisterPipeline next)
         {
             // Create Factory Method registration aspect
             return (IUnityContainer container, IPolicySet set, Type type, string name) =>
