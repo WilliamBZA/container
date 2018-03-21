@@ -2,135 +2,77 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Build.Context;
-using Unity.Build.Pipeline;
-using Unity.Build.Selected;
+using Unity.Build.Pipeleine;
 using Unity.Builder;
-using Unity.Exceptions;
-using Unity.Pipeline;
+using Unity.Policy;
 using Unity.Registration;
-using Unity.Resolution;
 
 namespace Unity
 {
-    /// <inheritdoc />
-    /// <summary>
-    /// A simple, extensible dependency injection container.
-    /// </summary>
+    // Resolving Engine Implementation 
     public partial class UnityContainer
     {
-        #region Getting objects
+        #region Mapping aspect
 
-        /// <summary>
-        /// GetOrDefault an instance of the requested type with the given name typeFrom the container.
-        /// </summary>
-        /// <param name="typeToBuild"><see cref="Type"/> of object to get typeFrom the container.</param>
-        /// <param name="nameToBuild">Name of the object to retrieve.</param>
-        /// <param name="resolverOverrides">Any overrides for the resolve call.</param>
-        /// <returns>The retrieved object.</returns>
-        public object Resolve(Type typeToBuild, string nameToBuild, params ResolverOverride[] resolverOverrides)
+        public static RegisterPipeline MappingAspectFactory(RegisterPipeline next)
         {
-            // Verify arguments
-            var name = string.IsNullOrEmpty(nameToBuild) ? null : nameToBuild;
-            var type = typeToBuild ?? throw new ArgumentNullException(nameof(typeToBuild));
-
-
-            try
+            // Analyse registration and generate mappings
+            return (IUnityContainer container, IPolicySet set, object[] args) =>
             {
-                Type ResolvingType = type;
-                //VerifyPipeline<Type> Verify = (Type t) => {};
-                var registration = GetRegistration(type, name);
+                // TODO: add case of re - resolve
 
-                ResolveDependency Resolve = (Type t, string n) =>
+                // Statically registered type
+                switch (set)
                 {
-                    // Verify if can resolve this type
-                    //Verify(t);
-
-                    // Cache old values
-                    //VerifyPipeline<Type> parentVerify = Verify;
-                    Type parentResolvingType = ResolvingType;
-
-                    try
-                    {
-                        Func<Type, string, Type, object> getMethod = (Type tt, string na, Type i) => _get(tt, na, i);
-                        ResolutionContext context = new ResolutionContext(getMethod, null)
+                    case StaticRegistration staticRegistration:
+                        if (null != staticRegistration.MappedToType && staticRegistration.RegisteredType != staticRegistration.MappedToType )
                         {
-                            LifetimeContainer = _lifetimeContainer,
+                            if (staticRegistration.MappedToType.GetTypeInfo().IsGenericTypeDefinition)
+                            {
+                                // TODO: Add proper error message
+                                staticRegistration.ResolveMethod = (ref ResolutionContext context) => throw new InvalidOperationException("Attempting to build open generic type");
 
-                            Registration = GetRegistration(t, n),
-                            ImplementationType = t,
-                            DeclaringType = ResolvingType,
-                        };
+                                var definition = staticRegistration.MappedToType;
+                                set.Set(typeof(MapTypePipeleine), (MapTypePipeleine)((Type[] getArgs) => definition.MakeGenericType(getArgs)));
+                            }
 
-                        ResolvingType = t;
-                        //Verify = (Type vT) => { if (ResolvingType == vT) throw new InvalidOperationException(); };
+                            // Build rest of pipeline
+                            next?.Invoke(container, set, staticRegistration.MappedToType);
+                            return;
+                        }
 
-                        return ((IResolveMethod)context.Registration).ResolveMethod(ref context);
-                    }
-                    finally
-                    {
-                        //Verify = parentVerify;
-                        ResolvingType = parentResolvingType;
-                    }
+                        break;
 
-                };
+                    case InternalRegistration internalRegistration:
+                        var info = internalRegistration.Type.GetTypeInfo();
+                        if (info.IsGenericType)
+                        {
+                            var definition = info.GetGenericTypeDefinition();
+                            var target = ((UnityContainer)container)._getRegistration(definition, internalRegistration.Name) ??
+                                         ((UnityContainer)container)._getRegistration(definition, string.Empty) ??  // TODO: Check if this second check could be removed
+                                          throw new InvalidOperationException("Trying to build interface");         // TODO: Add proper error message
 
-                ResolutionContext rootContext = new ResolutionContext
-                {
-                    LifetimeContainer = _lifetimeContainer,
+                            var mapTypePipeleine = target.Get<MapTypePipeleine>() ?? 
+                                                   throw new InvalidOperationException("Not generic base");         // TODO: Add proper error message
 
-                    Registration = registration,
-                    ImplementationType = type,
-                    DeclaringType = null,
+                            // Build rest of pipeline
+                            next?.Invoke(container, set, mapTypePipeleine?.Invoke(info.GenericTypeArguments), target);
+                            return;
+                        }
+                        break;
+                }
 
-                    Resolve = Resolve
-                };
-
-                return registration.ResolveMethod?.Invoke(ref rootContext);
-            }
-            catch (Exception ex)
-            {
-                throw new ResolutionFailedException(type, name, "// TODO: Bummer!", ex);
-            }
+                // Build rest of pipeline, no mapping required
+                next?.Invoke(container, set, args);
+            };
         }
 
         #endregion
 
-
-        #region BuildUp existing object
-
-        /// <summary>
-        /// Run an existing object through the container and perform injection on it.
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        /// This method is useful when you don'type control the construction of an
-        /// instance (ASP.NET pages or objects created via XAML, for instance)
-        /// but you still want properties and other injection performed.
-        /// </para></remarks>
-        /// <param name="typeToBuild"><see cref="Type"/> of object to perform injection on.</param>
-        /// <param name="existing">Instance to build up.</param>
-        /// <param name="nameToBuild">name to use when looking up the typemappings and other configurations.</param>
-        /// <param name="resolverOverrides">Any overrides for the buildup.</param>
-        /// <returns>The resulting object. By default, this will be <paramref name="existing"/>, but
-        /// container extensions may add things like automatic proxy creation which would
-        /// cause this to return a different object (but still type compatible with <paramref name="typeToBuild"/>).</returns>
-        public object BuildUp(Type typeToBuild, object existing, string nameToBuild, params ResolverOverride[] resolverOverrides)
-        {
-            // Verify arguments
-            var name = string.IsNullOrEmpty(nameToBuild) ? null : nameToBuild;
-            var type = typeToBuild ?? throw new ArgumentNullException(nameof(typeToBuild));
-            if (null != existing) InstanceIsAssignable(type, existing, nameof(existing));
-
-            var context = new BuilderContext(this, (InternalRegistration)GetRegistration(type, name), existing, resolverOverrides);
-
-            return BuilUpPipeline(context);
-        }
-
-
-        #endregion
 
 
         #region Resolving Enumerables
+
 
         internal static void ResolveArray<T>(IBuilderContext context)
         {

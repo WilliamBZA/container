@@ -7,7 +7,6 @@ using System.Linq;
 using System.Reflection;
 using Unity.Build.Selected;
 using Unity.Builder;
-using Unity.Dependency;
 using Unity.Policy;
 
 namespace Unity.ObjectBuilder.BuildPlan.Selection

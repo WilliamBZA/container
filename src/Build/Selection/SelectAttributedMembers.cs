@@ -1,12 +1,12 @@
 ﻿using System;
-using System.Linq;
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using Unity.Attributes;
-using Unity.Build.Selected;
+using Unity.Build.Injection;
 using Unity.Registration;
 
-namespace Unity.Build.Selection.Constructor
+namespace Unity.Build.Selection
 {
     public static class SelectAttributedMembers
     {
@@ -32,7 +32,7 @@ namespace Unity.Build.Selection.Constructor
                 }
 
                 if (null != constructor)
-                    return new SelectedConstructor(constructor);
+                    return new InjectionConstructor(constructor);
 
                 return next?.Invoke(container, registration);
             };
@@ -45,8 +45,8 @@ namespace Unity.Build.Selection.Constructor
                 return registration.Type.GetTypeInfo()
                                    .DeclaredMethods
                                    .Where(method => method.IsDefined(typeof(InjectionMethodAttribute), true))
-                                   .Select(method => new SelectedMethod(method))
-                                   .Concat(next?.Invoke(container, registration) ?? Enumerable.Empty<SelectedMethod>());
+                                   .Select(method => new InjectionMethod(method))
+                                   .Concat(next?.Invoke(container, registration) ?? Enumerable.Empty<IInjectionMethod>());
             };
         }
 
@@ -57,8 +57,8 @@ namespace Unity.Build.Selection.Constructor
                 return registration.Type.GetTypeInfo()
                                    .DeclaredProperties
                                    .Where(property => property.IsDefined(typeof(DependencyAttribute), true))
-                                   .Select(property => new SelectedProperty(property, null))
-                                   .Concat(next?.Invoke(container, registration) ?? Enumerable.Empty<SelectedProperty>());
+                                   .Select(property => new InjectionProperty(property))
+                                   .Concat(next?.Invoke(container, registration) ?? Enumerable.Empty<IInjectionProperty>());
             };
         }
 

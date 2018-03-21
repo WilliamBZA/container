@@ -1,40 +1,31 @@
 ﻿using System.Linq;
-using Unity.Build.Selected;
-using Unity.Build.Selection.Constructor;
+using Unity.Build.Injection;
 using Unity.Registration;
 
-namespace Unity.Select.Constructor
+namespace Unity.Build.Selection
 {
     public static class SelectInjectionMembers
     {
         public static SelectConstructorPipeline SelectConstructorPipelineFactory(SelectConstructorPipeline next)
         {
-            return (IUnityContainer container, InternalRegistration registration) =>
-            {
-                return (SelectedConstructor)(registration.Get(typeof(SelectedConstructor)) ?? next?.Invoke(container, registration));
-            };
+            return (IUnityContainer container, InternalRegistration registration) => 
+                (IInjectionConstructor)(registration.Get(typeof(IInjectionConstructor)) ?? next?.Invoke(container, registration));
         }
 
 
         public static SelectMethodsPipeline SelectMethodsPipelineFactory(SelectMethodsPipeline next)
         {
             return (IUnityContainer container, InternalRegistration registration) =>
-            {
-                return Enumerable.Concat(registration.OfType<SelectedMethod>().Cast<SelectedMethod>(), 
-                                         next?.Invoke(container, registration) ?? 
-                                         Enumerable.Empty<SelectedMethod>());
-            };
+                registration.OfType<IInjectionMethod>().Cast<IInjectionMethod>().Concat(next?.Invoke(container, registration) ?? 
+                                         Enumerable.Empty<IInjectionMethod>());
         }
 
 
         public static SelectPropertiesPipeline SelectPropertiesPipelineFactory(SelectPropertiesPipeline next)
         {
-            return (IUnityContainer container, InternalRegistration registration) =>
-            {
-                return Enumerable.Concat(registration.OfType<SelectedProperty>().Cast<SelectedProperty>(),
-                                         next?.Invoke(container, registration) ??
-                                         Enumerable.Empty<SelectedProperty>());
-            };
+            return (IUnityContainer container, InternalRegistration registration) => 
+                registration.OfType<IInjectionProperty>().Cast<IInjectionProperty>().Concat(next?.Invoke(container, registration) ??
+                Enumerable.Empty<IInjectionProperty>());
         }
     }
 }

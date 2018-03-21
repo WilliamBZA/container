@@ -5,7 +5,6 @@ using Unity;
 using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Builder.Strategy;
-using Unity.Dependency;
 using Unity.Extension;
 using Unity.Policy;
 using Unity.Registration;

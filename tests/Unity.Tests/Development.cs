@@ -1,9 +1,10 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Unity.Registration;
 using Unity.Tests.TestObjects;
 
-namespace Unity.Tests
+namespace Unity.Container.Tests
 {
     [TestClass]
     public class DevelopmentTests
@@ -12,7 +13,7 @@ namespace Unity.Tests
         [TestMethod]
         public void Development_CurrentTest()
         {
-            _container.RegisterType(typeof(IList<>), typeof(List<>));
+            _container.RegisterType(typeof(IList<>), typeof(List<>), new InjectionConstructor());
 
             Assert.IsNotNull(_container.Resolve<IList<object>>());
         }

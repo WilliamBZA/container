@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Globalization;
 using System.Reflection;
-using Unity.Build.Pipeline;
 using Unity.Build.Selected;
-using Unity.Build.Selection.Constructor;
 using Unity.Registration;
 
-namespace Unity.Select.Constructor
+namespace Unity.Build.Selection
 {
     public static class SelectLongestConstructor
     {
@@ -44,7 +42,7 @@ namespace Unity.Select.Constructor
                                       type.GetTypeInfo().Name, max));
                 }
 
-                return new SelectedConstructor(constructor);
+                return new InjectionConstructor(constructor);
             };
         }
     }

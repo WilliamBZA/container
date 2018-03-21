@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reflection;
 using Unity.Attributes;
 using Unity.Build.Selected;
-using Unity.Dependency;
 using Unity.Policy;
 
 namespace Unity.ObjectBuilder.Policies

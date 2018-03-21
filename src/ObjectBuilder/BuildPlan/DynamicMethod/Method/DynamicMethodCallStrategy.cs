@@ -8,7 +8,6 @@ using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Builder.Operation;
 using Unity.Builder.Strategy;
-using Unity.Dependency;
 using Unity.Exceptions;
 using Unity.Policy;
 

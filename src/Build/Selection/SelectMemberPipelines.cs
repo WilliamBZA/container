@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
-using Unity.Build.Selected;
+using Unity.Build.Injection;
 using Unity.Registration;
 
-namespace Unity.Build.Selection.Constructor
+namespace Unity.Build.Selection
 {
-    public delegate SelectedConstructor SelectConstructorPipeline(IUnityContainer container, InternalRegistration registration);
+    public delegate IInjectionConstructor           SelectConstructorPipeline(IUnityContainer container, InternalRegistration registration);
 
-    public delegate IEnumerable<SelectedMethod> SelectMethodsPipeline(IUnityContainer container, InternalRegistration registration);
+    public delegate IEnumerable<IInjectionMethod>   SelectMethodsPipeline(IUnityContainer container,     InternalRegistration registration);
 
-    public delegate IEnumerable<SelectedProperty> SelectPropertiesPipeline(IUnityContainer container, InternalRegistration registration);
+    public delegate IEnumerable<IInjectionProperty> SelectPropertiesPipeline(IUnityContainer container,  InternalRegistration registration);
 }

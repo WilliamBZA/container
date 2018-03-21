@@ -9,7 +9,6 @@ using Unity.Build.Selected;
 using Unity.Builder;
 using Unity.Builder.Policy;
 using Unity.Builder.Strategy;
-using Unity.Dependency;
 using Unity.Exceptions;
 using Unity.Lifetime;
 using Unity.Policy;

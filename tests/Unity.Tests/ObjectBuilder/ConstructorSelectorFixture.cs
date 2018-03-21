@@ -11,7 +11,6 @@ using Unity.Policy;
 using Unity.ObjectBuilder.BuildPlan.Selection;
 using Unity.Storage;
 using Unity.Tests.TestObjects;
-using Unity.Dependency;
 
 namespace Microsoft.Practices.ObjectBuilder2.Tests
 {

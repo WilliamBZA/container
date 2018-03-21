@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Linq;
 using System.Reflection;
+using Unity.Build.Pipeleine;
 using Unity.Builder;
-using Unity.Builder.Strategy;
-using Unity.Events;
 using Unity.Lifetime;
 using Unity.Policy;
 using Unity.Registration;
@@ -22,116 +21,57 @@ namespace Unity
         #endregion
 
 
-        #region Type Registration
+        #region Registration Aspects
 
-        /// <summary>
-        /// RegisterType a type mapping with the container, where the created instances will use
-        /// the given <see cref="LifetimeManager"/>.
-        /// </summary>
-        /// <param name="typeFrom"><see cref="Type"/> that will be requested.</param>
-        /// <param name="typeTo"><see cref="Type"/> that will actually be returned.</param>
-        /// <param name="name">Name to use for registration, null if a default registration.</param>
-        /// <param name="lifetimeManager">The <see cref="LifetimeManager"/> that controls the lifetime
-        /// of the returned instance.</param>
-        /// <param name="injectionMembers">Injection configuration objects.</param>
-        /// <returns>The <see cref="UnityContainer"/> object that this method was called on (this in C#, Me in Visual Basic).</returns>
-        public IUnityContainer RegisterType(Type typeFrom, Type typeTo, string name, LifetimeManager lifetimeManager, InjectionMember[] injectionMembers)
+        private static RegisterPipeline StaticRegistrationAspectFactory(RegisterPipeline next)
         {
-            // Validate imput
-            if (string.Empty == name) name = null; 
-            if (null == typeTo) throw new ArgumentNullException(nameof(typeTo));
-            if (lifetimeManager is LifetimeManager manager && manager.InUse) throw new InvalidOperationException(Constants.LifetimeManagerInUse);
-            if (typeFrom != null && !typeFrom.GetTypeInfo().IsGenericType && !typeTo.GetTypeInfo().IsGenericType && 
-                                    !typeFrom.GetTypeInfo().IsAssignableFrom(typeTo.GetTypeInfo()))
+            // Setup and add registration to container
+            return (IUnityContainer container, IPolicySet set, object[] args) =>
             {
-                throw new ArgumentException(string.Format(CultureInfo.CurrentCulture,
-                    Constants.TypesAreNotAssignable, typeFrom, typeTo), nameof(typeFrom));
-            }
+                var registration = (StaticRegistration) set;
 
-            var registration = new StaticRegistration(typeFrom, name, typeTo, lifetimeManager);
-
-            // Add Injection Members
-            if (null != injectionMembers && 0 < injectionMembers.Length)
-            {
-                if (null != injectionMembers && injectionMembers.Length > 0)
+                // Add injection memebers policies to the registration
+                if (null != args && 0 < args.Length)
                 {
-                    foreach (var member in injectionMembers)
+                    foreach (var member in args.OfType<InjectionMember>())
                     {
                         member.AddPolicies(registration.RegisteredType, registration.Name, registration.MappedToType, registration);
                     }
                 }
-            }
 
-            _registerPipeline(this, registration, registration.RegisteredType, registration.Name);
+                // Add to appropriate storage
+                var target = registration.LifetimeManager is ISingletonLifetimePolicy ? ((UnityContainer)container)._root : container;
 
-            return this;
-        }
-
-        #endregion
-
-
-        #region Instance Registration
-
-        /// <summary>
-        /// Register an instance with the container.
-        /// </summary>
-        /// <remarks> <para>
-        /// Instance registration is much like setting a type as a singleton, except that instead
-        /// of the container creating the instance the first time it is requested, the user
-        /// creates the instance ahead of type and adds that instance to the container.
-        /// </para></remarks>
-        /// <param name="registeredType">Type of instance to register (may be an implemented interface instead of the full type).</param>
-        /// <param name="instance">Object to be returned.</param>
-        /// <param name="name">Name for registration.</param>
-        /// <param name="lifetimeManager">
-        /// <para>If null or <see cref="ContainerControlledLifetimeManager"/>, the container will take over the lifetime of the instance,
-        /// calling Dispose on it (if it's <see cref="IDisposable"/>) when the container is Disposed.</para>
-        /// <para>
-        ///  If <see cref="ExternallyControlledLifetimeManager"/>, container will not maintain a strong reference to <paramref name="instance"/>. 
-        /// User is responsible for disposing instance, and for keeping the instance typeFrom being garbage collected.</para></param>
-        /// <returns>The <see cref="UnityContainer"/> object that this method was called on (this in C#, Me in Visual Basic).</returns>
-        public IUnityContainer RegisterInstance(Type registeredType, string name, object instance, LifetimeManager lifetimeManager)
-        {
-            // Validate imput
-            if (string.Empty == name) name = null;
-            if (null == instance) throw new ArgumentNullException(nameof(instance));
-
-            var type = instance.GetType();
-            var lifetime = lifetimeManager ?? new ContainerControlledLifetimeManager();
-            if (lifetime.InUse) throw new InvalidOperationException(Constants.LifetimeManagerInUse);
-            lifetime.SetValue(instance);
-            var registration = new StaticRegistration(registeredType ?? type, name, type, lifetime);
-
-            _registerPipeline(this, registration, registration.RegisteredType, registration.Name);
-
-            return this;
-        }
-
-        #endregion
-
-
-        #region Check Registration
-
-        public bool IsRegistered(Type type, string name) => IsTypeRegistered(type, name);
-
-        public bool IsTypeRegisteredLocally(Type type, string name)
-        {
-            var hashCode = (type?.GetHashCode() ?? 0) & 0x7FFFFFFF;
-            var targetBucket = hashCode % _registrations.Buckets.Length;
-            for (var i = _registrations.Buckets[targetBucket]; i >= 0; i = _registrations.Entries[i].Next)
-            {
-                if (_registrations.Entries[i].HashCode != hashCode ||
-                    _registrations.Entries[i].Key != type)
+                // Add or replace if exists 
+                var previous = ((UnityContainer)target).Register((InternalRegistration)set);
+                if (previous is StaticRegistration old && old.LifetimeManager is IDisposable disposable)
                 {
-                    continue;
+                    // Dispose replaced lifetime manager
+                    ((UnityContainer)target)._lifetimeContainer.Remove(disposable);
+                    disposable.Dispose();
                 }
 
-                return null == _registrations.Entries[i].Value?[name]
-                    ? _parent?.IsTypeRegistered(type, name) ?? false
-                    : true;
-            }
+                // If Disposable add to container's lifetime
+                if (registration.LifetimeManager is IDisposable manager)
+                    ((UnityContainer)target)._lifetimeContainer.Add(manager);
 
-            return _parent?.IsTypeRegistered(type, name) ?? false; ;
+                // Build rest of pipeline
+                next?.Invoke(container, set);
+                //if (null == registration.LifetimeManager.GetValue(((UnityContainer)target)._lifetimeContainer))
+            };
+        }
+
+
+        public static RegisterPipeline DynamicRegistrationAspectFactory(RegisterPipeline next)
+        {
+            // Analyse registration and generate mappings
+            return (IUnityContainer container, IPolicySet set, object[] args) =>
+            {
+                // TODO: add case of reresolve
+
+                // Build rest of pipeline, no mapping required
+                next?.Invoke(container, set, args);
+            };
         }
 
 

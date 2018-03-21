@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using Unity.AspectFactories;
+using Unity.Aspects;
 using Unity.Build.Factory;
-using Unity.Build.Pipeline;
-using Unity.Build.Selected;
-using Unity.Build.Selection.Constructor;
+using Unity.Build.Pipeleine;
+using Unity.Build.Selection;
 using Unity.Builder;
 using Unity.Builder.Strategy;
 using Unity.Container;
@@ -20,7 +19,6 @@ using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Method;
 using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Property;
 using Unity.Policy;
 using Unity.Registration;
-using Unity.Select.Constructor;
 using Unity.Storage;
 using Unity.Strategies;
 using Unity.Strategy;
@@ -33,7 +31,7 @@ namespace Unity
         #region Delegates
 
         private delegate object GetDelegate(Type type, string name, Type requestedType);
-
+        public delegate IPolicySet GetRegistrationDelegate(Type type, string name);
         internal delegate IBuilderPolicy GetPolicyDelegate(Type type, string name, Type policyInterface, out IPolicyList list);
         internal delegate void SetPolicyDelegate(Type type, string name, Type policyInterface, IBuilderPolicy policy);
         internal delegate void ClearPolicyDelegate(Type type, string name, Type policyInterface);
@@ -56,11 +54,13 @@ namespace Unity
         private IList<PipelineFactoryDelegate<SelectPropertiesPipeline>> _selectPropertiesFactories;
 
         // Pipelines
-        private RegisterPipeline _registerPipeline;
+        private RegisterPipeline _dynamicRegisterPipeline;
+        private RegisterPipeline _staticRegisterPipeline;
+        private RegisterPipeline _instanceRegisterPipeline;
         private GetRegistrationDelegate _getRegistration;
-        private SelectConstructorPipeline _constructorPipeline;
-        private SelectMethodsPipeline _methodsPipeline;
-        private SelectPropertiesPipeline _propertiesPipeline;
+        private SelectConstructorPipeline _constructorSelectionPipeline;
+        private SelectMethodsPipeline _methodsSelectionPipeline;
+        private SelectPropertiesPipeline _propertiesSelectionPipeline;
 
         ///////////////////////
 
@@ -113,10 +113,10 @@ namespace Unity
             _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(ContainerInitialCapacity);
 
             // Factories
-            _registrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { RegistrationBuildAspect,
-                                                                                   Mapping.MappingAspectFactory,
-                                                                           FactoryDelegate.FactoryDelegateAspectFactory,
-                                                                                  Lifetime.LifetimeAspectFactory };
+            _registrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { BuildAspectFactory,
+                                                                                           MappingAspectFactory,
+                                                                     FactoryDelegateAspect.DelegateAspectFactory,
+                                                                            LifetimeAspect.LifetimeAspectFactory };
 
             _selectConstructorFactories = new List<PipelineFactoryDelegate<SelectConstructorPipeline>> { SelectLongestConstructor.SelectConstructorPipelineFactory,
                                                                                                           SelectAttributedMembers.SelectConstructorPipelineFactory,
@@ -129,10 +129,13 @@ namespace Unity
                                                                                                         SelectInjectionMembers.SelectPropertiesPipelineFactory };
 
             // Pipelines
-            _registerPipeline    = _registrationFactories.BuildPipeline();
-            _constructorPipeline = _selectConstructorFactories.BuildPipeline();
-            _methodsPipeline     = _selectMethodsFactories.BuildPipeline();
-            _propertiesPipeline  = _selectPropertiesFactories.BuildPipeline();
+            _dynamicRegisterPipeline = DynamicRegistrationAspectFactory( _registrationFactories.BuildPipeline());
+            _staticRegisterPipeline  = StaticRegistrationAspectFactory(_dynamicRegisterPipeline);
+            _instanceRegisterPipeline = StaticRegistrationAspectFactory(LifetimeAspect.LifetimeAspectFactory(null));
+
+            _constructorSelectionPipeline = _selectConstructorFactories.BuildPipeline();
+            _methodsSelectionPipeline     = _selectMethodsFactories.BuildPipeline();
+            _propertiesSelectionPipeline  = _selectPropertiesFactories.BuildPipeline();
 
             _getRegistration = GetOrAdd;
 
@@ -449,7 +452,7 @@ namespace Unity
         {
             var registration = new InternalRegistration(type, name);
 
-            _registerPipeline(this, registration, type, name);
+            _dynamicRegisterPipeline(this, registration);
 
             return registration;
         }
@@ -458,7 +461,7 @@ namespace Unity
         {
             var registration = new InternalRegistration(type, name, policyInterface, policy);
 
-            _registerPipeline(this, registration, type, name);
+            _dynamicRegisterPipeline(this, registration);
 
             return registration;
         }

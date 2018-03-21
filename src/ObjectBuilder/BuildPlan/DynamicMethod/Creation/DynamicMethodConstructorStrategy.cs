@@ -11,7 +11,6 @@ using Unity.Builder;
 using Unity.Builder.Operation;
 using Unity.Builder.Strategy;
 using Unity.Container.Lifetime;
-using Unity.Dependency;
 using Unity.Lifetime;
 using Unity.Policy;
 
@@ -208,10 +207,11 @@ namespace Unity.ObjectBuilder.BuildPlan.DynamicMethod.Creation
         /// <param name="context">Current build context.</param>
         public static void SetPerBuildSingleton(IBuilderContext context)
         {
-            var perBuildLifetime = new InternalPerResolveLifetimeManager(context.Existing);
-            context.Policies.Set(context.OriginalBuildKey.Type,
-                                 context.OriginalBuildKey.Name,
-                                 typeof(ILifetimePolicy), perBuildLifetime);
+            // TODO:
+            //var perBuildLifetime = new InternalPerResolveLifetimeManager(context.Existing);
+            //context.Policies.Set(context.OriginalBuildKey.Type,
+            //                     context.OriginalBuildKey.Name,
+            //                     typeof(ILifetimePolicy), perBuildLifetime);
         }
 
         /// <summary>

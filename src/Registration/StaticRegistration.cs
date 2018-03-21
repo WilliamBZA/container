@@ -10,6 +10,14 @@ namespace Unity.Registration
     {
         #region Constructors
 
+        public StaticRegistration(Type registeredType, string name, LifetimeManager lifetimeManager)
+            : base(registeredType, string.IsNullOrEmpty(name) ? null : name)
+        {
+            MappedToType = registeredType;
+            LifetimeManager = lifetimeManager ?? TransientLifetimeManager.Instance;
+            LifetimeManager.InUse = true;
+        }
+
         public StaticRegistration(Type registeredType, string name, Type mappedTo, LifetimeManager lifetimeManager)
             : base(registeredType ?? mappedTo, string.IsNullOrEmpty(name) ? null : name)
         {
