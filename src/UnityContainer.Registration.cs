@@ -21,63 +21,6 @@ namespace Unity
         #endregion
 
 
-        #region Registration Aspects
-
-        private static RegisterPipeline StaticRegistrationAspectFactory(RegisterPipeline next)
-        {
-            // Setup and add registration to container
-            return (IUnityContainer container, IPolicySet set, object[] args) =>
-            {
-                var registration = (StaticRegistration) set;
-
-                // Add injection memebers policies to the registration
-                if (null != args && 0 < args.Length)
-                {
-                    foreach (var member in args.OfType<InjectionMember>())
-                    {
-                        member.AddPolicies(registration.RegisteredType, registration.Name, registration.MappedToType, registration);
-                    }
-                }
-
-                // Add to appropriate storage
-                var target = registration.LifetimeManager is ISingletonLifetimePolicy ? ((UnityContainer)container)._root : container;
-
-                // Add or replace if exists 
-                var previous = ((UnityContainer)target).Register((InternalRegistration)set);
-                if (previous is StaticRegistration old && old.LifetimeManager is IDisposable disposable)
-                {
-                    // Dispose replaced lifetime manager
-                    ((UnityContainer)target)._lifetimeContainer.Remove(disposable);
-                    disposable.Dispose();
-                }
-
-                // If Disposable add to container's lifetime
-                if (registration.LifetimeManager is IDisposable manager)
-                    ((UnityContainer)target)._lifetimeContainer.Add(manager);
-
-                // Build rest of pipeline
-                next?.Invoke(container, set);
-                //if (null == registration.LifetimeManager.GetValue(((UnityContainer)target)._lifetimeContainer))
-            };
-        }
-
-
-        public static RegisterPipeline DynamicRegistrationAspectFactory(RegisterPipeline next)
-        {
-            // Analyse registration and generate mappings
-            return (IUnityContainer container, IPolicySet set, object[] args) =>
-            {
-                // TODO: add case of reresolve
-
-                // Build rest of pipeline, no mapping required
-                next?.Invoke(container, set, args);
-            };
-        }
-
-
-        #endregion
-
-
         #region Registrations Collection
 
         /// <summary>
@@ -205,7 +148,7 @@ namespace Unity
 
         #region Registration manipulation
 
-        private InternalRegistration AddOrUpdate(INamedType registration)
+        private ImplicitRegistration AddOrUpdate(INamedType registration)
         {
             var collisions = 0;
             var hashCode = (registration.Type?.GetHashCode() ?? 0) & 0x7FFFFFFF;
@@ -231,7 +174,7 @@ namespace Unity
                         _registrations.Entries[i].Value = existing;
                     }
 
-                    return (InternalRegistration)existing.SetOrReplace(registration.Name, (IPolicySet)registration);
+                    return (ImplicitRegistration)existing.SetOrReplace(registration.Name, (IPolicySet)registration);
                 }
 
                 if (_registrations.RequireToGrow || ListToHashCutoverPoint < collisions)
@@ -251,7 +194,7 @@ namespace Unity
             }
         }
 
-        private InternalRegistration GetOrAdd(Type type, string name)
+        private ImplicitRegistration GetOrAdd(Type type, string name)
         {
             var collisions = 0;
             var hashCode = (type?.GetHashCode() ?? 0) & 0x7FFFFFFF;
@@ -266,7 +209,7 @@ namespace Unity
                 }
 
                 var policy = _registrations.Entries[i].Value?[name];
-                if (null != policy) return (InternalRegistration)policy; 
+                if (null != policy) return (ImplicitRegistration)policy; 
             }
 
             lock (_syncRoot)
@@ -291,7 +234,7 @@ namespace Unity
                         _registrations.Entries[i].Value = existing;
                     }
 
-                    return (InternalRegistration)existing.GetOrAdd(name, () => CreateRegistration(type, name));
+                    return (ImplicitRegistration)existing.GetOrAdd(name, () => CreateRegistration(type, name));
                 }
 
                 if (_registrations.RequireToGrow || ListToHashCutoverPoint < collisions)
@@ -307,7 +250,7 @@ namespace Unity
                 _registrations.Entries[_registrations.Count].Value = new LinkedRegistry(name, registration);
                 _registrations.Buckets[targetBucket] = _registrations.Count;
                 _registrations.Count++;
-                return (InternalRegistration)registration;
+                return (ImplicitRegistration)registration;
             }
         }
 
@@ -404,7 +347,7 @@ namespace Unity
                 return policy;
             }
 
-            return _parent?.GetPolicy(type, name, policyInterface, out list);
+            return _parent?.GetPolicyList(type, name, policyInterface, out list);
         }
 
         private object Get(Type type, string name, Type requestedType)
@@ -420,10 +363,10 @@ namespace Unity
                 }
 
                 return _registrations.Entries[i].Value?[name]?.Get(requestedType) ??
-                       _parent?._get(type, name, requestedType);
+                       _parent?._getPolicy(type, name, requestedType);
             }
 
-            return _parent?._get(type, name, requestedType);
+            return _parent?._getPolicy(type, name, requestedType);
         }
 
         private void Set(Type type, string name, Type policyInterface, IBuilderPolicy policy)

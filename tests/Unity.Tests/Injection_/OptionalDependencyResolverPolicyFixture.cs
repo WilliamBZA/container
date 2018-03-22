@@ -10,6 +10,7 @@ using Unity.Lifetime;
 using Unity.Policy;
 using Unity.Resolution;
 using Unity.ResolverPolicy;
+using Unity.Storage;
 using Unity.Strategy;
 
 namespace Microsoft.Practices.Unity.Tests

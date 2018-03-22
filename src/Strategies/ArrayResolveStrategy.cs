@@ -4,6 +4,7 @@ using Unity.Builder.Strategy;
 using Unity.ObjectBuilder.BuildPlan.DynamicMethod;
 using Unity.Policy;
 using Unity.Registration;
+using Unity.Storage;
 
 namespace Unity.Strategies
 {
@@ -55,7 +56,7 @@ namespace Unity.Strategies
 
         public override bool RequiredToBuildType(IUnityContainer container, INamedType namedType, params InjectionMember[] injectionMembers)
         {
-            return  namedType is InternalRegistration registration && 
+            return  namedType is ImplicitRegistration registration && 
                     registration.Type.IsArray && registration.Type.GetArrayRank() == 1
                 ? true : false;
         }

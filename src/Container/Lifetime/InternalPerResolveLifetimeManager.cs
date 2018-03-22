@@ -22,7 +22,6 @@ namespace Unity.Container.Lifetime
         public InternalPerResolveLifetimeManager(object value)
         {
             base.value = value;
-            InUse = true;
         }
     }
 }

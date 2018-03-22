@@ -8,14 +8,14 @@ namespace Unity.Build.Selection
     {
         public static SelectConstructorPipeline SelectConstructorPipelineFactory(SelectConstructorPipeline next)
         {
-            return (IUnityContainer container, InternalRegistration registration) => 
+            return (IUnityContainer container, ImplicitRegistration registration) => 
                 (IInjectionConstructor)(registration.Get(typeof(IInjectionConstructor)) ?? next?.Invoke(container, registration));
         }
 
 
         public static SelectMethodsPipeline SelectMethodsPipelineFactory(SelectMethodsPipeline next)
         {
-            return (IUnityContainer container, InternalRegistration registration) =>
+            return (IUnityContainer container, ImplicitRegistration registration) =>
                 registration.OfType<IInjectionMethod>().Cast<IInjectionMethod>().Concat(next?.Invoke(container, registration) ?? 
                                          Enumerable.Empty<IInjectionMethod>());
         }
@@ -23,7 +23,7 @@ namespace Unity.Build.Selection
 
         public static SelectPropertiesPipeline SelectPropertiesPipelineFactory(SelectPropertiesPipeline next)
         {
-            return (IUnityContainer container, InternalRegistration registration) => 
+            return (IUnityContainer container, ImplicitRegistration registration) => 
                 registration.OfType<IInjectionProperty>().Cast<IInjectionProperty>().Concat(next?.Invoke(container, registration) ??
                 Enumerable.Empty<IInjectionProperty>());
         }

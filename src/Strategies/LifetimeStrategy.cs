@@ -86,7 +86,7 @@ namespace Unity.Strategies
 
         public override bool RequiredToBuildType(IUnityContainer container, INamedType namedType, params InjectionMember[] injectionMembers)
         {
-            if (namedType is InternalRegistration registration)
+            if (namedType is ImplicitRegistration registration)
             {
                 var policy = registration.Get(typeof(ILifetimePolicy));
                 if (null != policy)
@@ -98,7 +98,7 @@ namespace Unity.Strategies
                 }
 
                 // Dynamic registration
-                if (!(registration is StaticRegistration) && registration.Type.GetTypeInfo().IsGenericType)
+                if (!(registration is ExplicitRegistration) && registration.Type.GetTypeInfo().IsGenericType)
                     return true;
             }
 

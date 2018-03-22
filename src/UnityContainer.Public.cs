@@ -36,10 +36,9 @@ namespace Unity
         [SuppressMessage("ReSharper", "CoVariantArrayConversion")]
         public IUnityContainer RegisterType(Type typeFrom, Type typeTo, string name, LifetimeManager lifetimeManager, InjectionMember[] injectionMembers)
         {
-            // Validate imput
+            // Validate input
             if (string.Empty == name) name = null;
             if (null == typeTo) throw new ArgumentNullException(nameof(typeTo));
-            if (lifetimeManager is LifetimeManager manager && manager.InUse) throw new InvalidOperationException(Constants.LifetimeManagerInUse);
             if (typeFrom != null && !typeFrom.GetTypeInfo().IsGenericType && !typeTo.GetTypeInfo().IsGenericType &&
                                     !typeFrom.GetTypeInfo().IsAssignableFrom(typeTo.GetTypeInfo()))
             {
@@ -48,7 +47,7 @@ namespace Unity
             }
 
             // Register type
-            _staticRegisterPipeline(this, new StaticRegistration(typeFrom, name, typeTo, lifetimeManager), injectionMembers);
+            _staticRegisterPipeline(this, new ExplicitRegistration(typeFrom, name, typeTo, lifetimeManager), injectionMembers);
 
             return this;
         }
@@ -78,16 +77,15 @@ namespace Unity
         /// <returns>The <see cref="UnityContainer"/> object that this method was called on (this in C#, Me in Visual Basic).</returns>
         public IUnityContainer RegisterInstance(Type registeredType, string name, object instance, LifetimeManager lifetimeManager)
         {
-            // Validate imput
+            // Validate input
             if (string.Empty == name) name = null;
             if (null == instance) throw new ArgumentNullException(nameof(instance));
 
             var lifetime = lifetimeManager ?? new ContainerControlledLifetimeManager();
-            if (lifetime.InUse) throw new InvalidOperationException(Constants.LifetimeManagerInUse);
             lifetime.SetValue(instance);
 
             // Register instance
-            _instanceRegisterPipeline(this, new StaticRegistration(registeredType ?? instance.GetType(), name, lifetime));
+            _instanceRegisterPipeline(this, new ExplicitRegistration(registeredType ?? instance.GetType(), name, lifetime));
 
             return this;
         }
@@ -156,7 +154,7 @@ namespace Unity
 
                     try
                     {
-                        Func<Type, string, Type, object> getMethod = (Type tt, string na, Type i) => _get(tt, na, i);
+                        Func<Type, string, Type, object> getMethod = (Type tt, string na, Type i) => _getPolicy(tt, na, i);
                         ResolutionContext context = new ResolutionContext(getMethod, null)
                         {
                             LifetimeContainer = _lifetimeContainer,
@@ -226,7 +224,7 @@ namespace Unity
             var type = typeToBuild ?? throw new ArgumentNullException(nameof(typeToBuild));
             if (null != existing) InstanceIsAssignable(type, existing, nameof(existing));
 
-            var context = new BuilderContext(this, (InternalRegistration)GetRegistration(type, name), existing, resolverOverrides);
+            var context = new BuilderContext(this, (ImplicitRegistration)GetRegistration(type, name), existing, resolverOverrides);
 
             return BuilUpPipeline(context);
         }

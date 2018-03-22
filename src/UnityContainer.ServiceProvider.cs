@@ -9,7 +9,7 @@ namespace Unity
         public object GetService(Type serviceType)
         {
             var registration = GetRegistration(serviceType ?? throw new ArgumentNullException(nameof(serviceType)), null);
-            var context = new BuilderContext(this, (InternalRegistration)registration, null, null);
+            var context = new BuilderContext(this, (ImplicitRegistration)registration, null, null);
             return NotThrowingBuildUp(context);
         }
     }

@@ -12,7 +12,7 @@ namespace Unity.Build.Selection
     {
         public static SelectConstructorPipeline SelectConstructorPipelineFactory(SelectConstructorPipeline next)
         {
-            return (IUnityContainer container, InternalRegistration registration) =>
+            return (IUnityContainer container, ImplicitRegistration registration) =>
             {
                 var type = registration.Type;
                 ConstructorInfo constructor = null;
@@ -40,7 +40,7 @@ namespace Unity.Build.Selection
 
         public static SelectMethodsPipeline SelectMethodsPipelineFactory(SelectMethodsPipeline next)
         {
-            return (IUnityContainer container, InternalRegistration registration) =>
+            return (IUnityContainer container, ImplicitRegistration registration) =>
             {
                 return registration.Type.GetTypeInfo()
                                    .DeclaredMethods
@@ -52,7 +52,7 @@ namespace Unity.Build.Selection
 
         public static SelectPropertiesPipeline SelectPropertiesPipelineFactory(SelectPropertiesPipeline next)
         {
-            return (IUnityContainer container, InternalRegistration registration) =>
+            return (IUnityContainer container, ImplicitRegistration registration) =>
             {
                 return registration.Type.GetTypeInfo()
                                    .DeclaredProperties

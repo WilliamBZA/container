@@ -43,7 +43,7 @@ namespace Unity.Container.Tests.Build.Selection
             //var ctors = type.GetTypeInfo().DeclaredConstructors.ToArray();
             //var ctor = new SelectedConstructor(ctors[index]);
             //var selector = SelectLongestConstructor.SelectConstructorPipelineFactory(null);
-            //var registration = new InternalRegistration(type, null);
+            //var registration = new ImplicitRegistration(type, null);
             //var selection = selector(null, registration);
 
             //Assert.AreEqual(ctor.Constructor, selection.Constructor);
@@ -55,7 +55,7 @@ namespace Unity.Container.Tests.Build.Selection
         public void Container_Build_Selection_SelectLongestConstructor_fail(int test, Type type)
         {
             var selector = SelectLongestConstructor.SelectConstructorPipelineFactory(null);
-            var registration = new InternalRegistration(type, null);
+            var registration = new ImplicitRegistration(type, null);
             var selection = selector(null, registration);
         }
 
@@ -68,7 +68,7 @@ namespace Unity.Container.Tests.Build.Selection
             var ctors = type.GetTypeInfo().DeclaredConstructors.ToArray();
             var ctor = new SelectedConstructor(ctors[index]);
             var selector = SelectInjectionMembers.SelectConstructorPipelineFactory(null);
-            var registration = new InternalRegistration(type, null, typeof(SelectedConstructor), ctor);
+            var registration = new ImplicitRegistration(type, null, typeof(SelectedConstructor), ctor);
             var selection = selector(null, registration);
 
             Assert.AreEqual(ctor, selection);

@@ -10,11 +10,11 @@ namespace Unity.Build.Selection
     {
         public static SelectConstructorPipeline SelectConstructorPipelineFactory(SelectConstructorPipeline next)
         {
-            return (IUnityContainer container, InternalRegistration registration) =>
+            return (IUnityContainer container, ImplicitRegistration registration) =>
             {
                 int max = -1;
-                var type = registration is StaticRegistration staticRegistration 
-                         ? (staticRegistration.MappedToType ?? staticRegistration.Type) 
+                var type = registration is ExplicitRegistration explicitRegistration 
+                         ? (explicitRegistration.MappedToType ?? explicitRegistration.Type) 
                          : registration.Type;
                 ConstructorInfo secondBest = null;
                 ConstructorInfo constructor = null;

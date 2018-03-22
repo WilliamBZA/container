@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Unity.Utility;
 
 namespace Unity.Storage
 {
+    [DebuggerDisplay("LinkedRegistry:  Count={Count}")]
     internal class HashRegistry<TKey, TValue> : IRegistry<TKey, TValue>
     {
         #region Constants

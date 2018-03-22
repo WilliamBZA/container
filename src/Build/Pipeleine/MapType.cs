@@ -2,6 +2,12 @@
 
 namespace Unity.Build.Pipeleine
 {
-    public delegate Type MapTypePipeleine(Type[] args);
+    public delegate Type MapType(Type[] args);
+
+
+    public interface IMapType
+    {
+        MapType MapType { get; set; }
+    }
 
 }

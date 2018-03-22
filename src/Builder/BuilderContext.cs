@@ -8,6 +8,7 @@ using Unity.Lifetime;
 using Unity.Policy;
 using Unity.Registration;
 using Unity.Resolution;
+using Unity.Storage;
 using Unity.Strategy;
 
 namespace Unity.Builder
@@ -29,7 +30,7 @@ namespace Unity.Builder
 
         #region Constructors
 
-        public BuilderContext(UnityContainer container, InternalRegistration registration,
+        public BuilderContext(UnityContainer container, ImplicitRegistration registration,
                               object existing, params ResolverOverride[] resolverOverrides)
         {
             _container = container;
@@ -62,7 +63,7 @@ namespace Unity.Builder
             _ownsOverrides = true;
         }
 
-        protected BuilderContext(IBuilderContext original, InternalRegistration registration)
+        protected BuilderContext(IBuilderContext original, ImplicitRegistration registration)
         {
             var parent = (BuilderContext)original;
 
@@ -81,7 +82,7 @@ namespace Unity.Builder
         internal BuilderContext(IBuilderContext original, Type type, string name)
         {
             var parent = (BuilderContext)original;
-            var registration = (InternalRegistration)parent._container.GetRegistration(type, name);
+            var registration = (ImplicitRegistration)parent._container.GetRegistration(type, name);
 
             _container = parent._container;
             _chain = parent._chain;
@@ -158,7 +159,7 @@ namespace Unity.Builder
         public object BuildUp()
         {
             var i = -1;
-            var chain = ((InternalRegistration)Registration).BuildChain;
+            var chain = ((ImplicitRegistration)Registration).BuildChain;
 
             try
             {
@@ -181,7 +182,7 @@ namespace Unity.Builder
             return Existing;
         }
 
-        public object NewBuildUp(InternalRegistration registration)
+        public object NewBuildUp(ImplicitRegistration registration)
         {
             ChildContext = new BuilderContext(this, registration);
 
@@ -218,7 +219,7 @@ namespace Unity.Builder
             childCustomizationBlock?.Invoke(ChildContext);
 
             var i = -1;
-            var chain = ((InternalRegistration)ChildContext.Registration).BuildChain;
+            var chain = ((ImplicitRegistration)ChildContext.Registration).BuildChain;
 
             try
             {
@@ -254,7 +255,7 @@ namespace Unity.Builder
             list = null;
 
             if (!ReferenceEquals(type, OriginalBuildKey.Type) || name != OriginalBuildKey.Name)
-                return _container.GetPolicy(type, name, policyInterface, out list);
+                return _container.GetPolicyList(type, name, policyInterface, out list);
 
             var result = (IBuilderPolicy)Registration.Get(policyInterface);
             if (null != result) list = this;
@@ -290,7 +291,7 @@ namespace Unity.Builder
             list = null;
 
             if (!ReferenceEquals(type, OriginalBuildKey.Type) || name != OriginalBuildKey.Name)
-                return _container.GetPolicy(type, name, policyInterface, out list);
+                return _container.GetPolicyList(type, name, policyInterface, out list);
 
             var result = (IBuilderPolicy)Registration.Get(policyInterface);
             if (null != result) list = this;

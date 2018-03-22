@@ -7,6 +7,7 @@ using Unity.ObjectBuilder.BuildPlan.DynamicMethod;
 using Unity.Policy;
 using Unity.Policy.Mapping;
 using Unity.Registration;
+using Unity.Storage;
 
 namespace Unity.Strategies
 {
@@ -24,7 +25,7 @@ namespace Unity.Strategies
         /// <param name="context">The context for the operation.</param>
         public override void PreBuildUp(IBuilderContext context)
         {
-            if (context.OriginalBuildKey is StaticRegistration registration && 
+            if (context.OriginalBuildKey is ExplicitRegistration registration && 
                 registration.RegisteredType == registration.MappedToType)
                 return;
                 
@@ -48,7 +49,7 @@ namespace Unity.Strategies
                         c.Existing = c.ChildContext.Existing;
                         c.BuildComplete = null != context.Existing;
 
-                        //if (((InternalRegistration)context.Registration).EnableOptimization)
+                        //if (((ImplicitRegistration)context.Registration).EnableOptimization)
                         //{
                         //    var plan = c.ChildContext.Registration.Get(typeof(IBuildPlanPolicy));
                         //    if (null != plan) context.Registration.Set(typeof(IBuildPlanPolicy), plan);
@@ -62,7 +63,7 @@ namespace Unity.Strategies
 
         public override void PostBuildUp(IBuilderContext context)
         {
-            if (context.Registration is InternalRegistration registration && 
+            if (context.Registration is ImplicitRegistration registration && 
                 null != registration.BuildChain &&
                 null != context.Registration.Get<IBuildPlanPolicy>())
             {
@@ -89,10 +90,10 @@ namespace Unity.Strategies
         {
             switch (namedType)
             {
-                case StaticRegistration registration:
+                case ExplicitRegistration registration:
                     return AnalysStaticRegistration(container, registration, injectionMembers);
 
-                case InternalRegistration registration:
+                case ImplicitRegistration registration:
                     return AnalysDynamicRegistration(container, registration);
 
                 default:
@@ -100,9 +101,9 @@ namespace Unity.Strategies
             }
         }
 
-        private bool AnalysStaticRegistration(IUnityContainer container, StaticRegistration registration, params InjectionMember[] injectionMembers)
+        private bool AnalysStaticRegistration(IUnityContainer container, ExplicitRegistration registration, params InjectionMember[] injectionMembers)
         {
-            //// Validate imput
+            //// Validate input
             //if (null == registration.MappedToType || registration.RegisteredType == registration.MappedToType) return false;
 
             //// Require Re-Resolve if no injectors specified
@@ -119,7 +120,7 @@ namespace Unity.Strategies
             return true;
         }
 
-        private bool AnalysDynamicRegistration(IUnityContainer container, InternalRegistration registration)
+        private bool AnalysDynamicRegistration(IUnityContainer container, ImplicitRegistration registration)
         {
             return registration.Type.GetTypeInfo().IsGenericType;
         }

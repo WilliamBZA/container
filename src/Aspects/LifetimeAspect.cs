@@ -1,8 +1,9 @@
 ﻿using Unity.Build.Context;
 using Unity.Build.Pipeleine;
+using Unity.Build.Policy;
 using Unity.Lifetime;
-using Unity.Policy;
 using Unity.Registration;
+using Unity.Storage;
 
 namespace Unity.Aspects
 {
@@ -17,19 +18,28 @@ namespace Unity.Aspects
                 next?.Invoke(container, set, args);
 
                 // Create aspect
-                var lifetime = set is StaticRegistration staticRegistration
-                             ? staticRegistration.LifetimeManager
-                             : (LifetimeManager)set.Get(typeof(ILifetimePolicy));
+
+                LifetimeManager lifetime;
+                if (set is ExplicitRegistration staticRegistration)
+                {
+                    lifetime = staticRegistration.LifetimeManager;
+                    if (lifetime is IRequireBuild) staticRegistration.BuildRequired = true;
+                }
+                else
+                {
+                    lifetime = (LifetimeManager)set.Get(typeof(ILifetimePolicy));
+                }
+
 
                 // No lifetime management if null or Transient
                 if (null == lifetime || lifetime is TransientLifetimeManager) return;
 
                 // Add aspect
-                var pipeline = ((InternalRegistration)set).ResolveMethod;
+                var pipeline = ((ImplicitRegistration)set).ResolveMethod;
                 if (null == pipeline)
-                    ((InternalRegistration)set).ResolveMethod = (ref ResolutionContext context) => lifetime.GetValue(context.LifetimeContainer);
+                    ((ImplicitRegistration)set).ResolveMethod = (ref ResolutionContext context) => lifetime.GetValue(context.LifetimeContainer);
                 else
-                    ((InternalRegistration)set).ResolveMethod = (ref ResolutionContext context) =>
+                    ((ImplicitRegistration)set).ResolveMethod = (ref ResolutionContext context) =>
                     {
                         var value = lifetime.GetValue(context.LifetimeContainer);
                         if (null != value) return value;

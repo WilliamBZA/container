@@ -6,6 +6,7 @@ using Unity.Builder.Strategy;
 using Unity.Exceptions;
 using Unity.Policy;
 using Unity.Registration;
+using Unity.Storage;
 
 namespace Unity.Strategies
 {
@@ -74,7 +75,7 @@ namespace Unity.Strategies
 
         private static IBuildPlanCreatorPolicy CheckIfOpenGeneric(IPolicySet namedType)
         {
-            if (namedType is InternalRegistration registration && !(namedType is StaticRegistration) && registration.Type.GetTypeInfo().IsGenericTypeDefinition)
+            if (namedType is ImplicitRegistration registration && !(namedType is ExplicitRegistration) && registration.Type.GetTypeInfo().IsGenericTypeDefinition)
             {
                 throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, 
                     Constants.CannotResolveOpenGenericType, registration.Type.FullName));
