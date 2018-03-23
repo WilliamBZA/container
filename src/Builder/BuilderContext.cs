@@ -158,89 +158,17 @@ namespace Unity.Builder
 
         public object BuildUp()
         {
-            var i = -1;
-            var chain = ((ImplicitRegistration)Registration).BuildChain;
-
-            try
-            {
-                while (!BuildComplete && ++i < chain.Count)
-                {
-                    chain[i].PreBuildUp(this);
-                }
-
-                while (--i >= 0)
-                {
-                    chain[i].PostBuildUp(this);
-                }
-            }
-            catch (Exception)
-            {
-                RequiresRecovery?.Recover();
-                throw;
-            }
-
             return Existing;
         }
 
         public object NewBuildUp(ImplicitRegistration registration)
         {
-            ChildContext = new BuilderContext(this, registration);
-
-            var i = -1;
-            var chain = registration.BuildChain;
-
-            try
-            {
-                while (!ChildContext.BuildComplete && ++i < chain.Count)
-                {
-                    chain[i].PreBuildUp(ChildContext);
-                }
-
-                while (--i >= 0)
-                {
-                    chain[i].PostBuildUp(ChildContext);
-                }
-            }
-            catch (Exception)
-            {
-                ChildContext.RequiresRecovery?.Recover();
-                throw;
-            }
-
-            var result = ChildContext.Existing;
-            ChildContext = null;
-
-            return result;
+            return null;
         }
 
         public object NewBuildUp(Type type, string name, Action<IBuilderContext> childCustomizationBlock = null)
         {
-            ChildContext = new BuilderContext(this, type, name);
-            childCustomizationBlock?.Invoke(ChildContext);
-
-            var i = -1;
-            var chain = ((ImplicitRegistration)ChildContext.Registration).BuildChain;
-
-            try
-            {
-                while (!ChildContext.BuildComplete && ++i < chain.Count)
-                {
-                    chain[i].PreBuildUp(ChildContext);
-                }
-
-                while (--i >= 0)
-                {
-                    chain[i].PostBuildUp(ChildContext);
-                }
-            }
-            catch (Exception)
-            {
-                ChildContext.RequiresRecovery?.Recover();
-                throw;
-            }
-
             var result = ChildContext.Existing;
-            ChildContext = null;
 
             return result;
         }

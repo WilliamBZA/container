@@ -80,7 +80,7 @@ namespace Microsoft.Practices.Unity.Tests
             container.RegisterInstance("instance", "the string");
 
             //// equivalent to doing the following, which would be rejected by the compiler
-            //new GenericTypeWithMultipleGenericTypeParameters<string, string>().Set(container.Resolve<string>("instance"));
+            //new GenericTypeWithMultipleGenericTypeParameters<string, string>().Set(container.ResolveMethod<string>("instance"));
 
             AssertExtensions.AssertException<ResolutionFailedException>(
                 () => container.Resolve<GenericTypeWithMultipleGenericTypeParameters<string, string>>(),

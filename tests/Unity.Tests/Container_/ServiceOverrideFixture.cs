@@ -11,7 +11,7 @@ namespace Microsoft.Practices.Unity.Tests
 {
     /// <summary>
     /// Test cases around service overrides and passing parameters to
-    /// the container's Resolve method.
+    /// the container's ResolveMethod method.
     /// </summary>
     [TestClass]
     public class ServiceOverrideFixture

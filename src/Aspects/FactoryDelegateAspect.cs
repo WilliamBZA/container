@@ -1,6 +1,5 @@
 ﻿using Unity.Build.Pipeleine;
 using Unity.Registration;
-using Unity.Storage;
 
 namespace Unity.Aspects
 {
@@ -9,9 +8,9 @@ namespace Unity.Aspects
         public static RegisterPipeline DelegateAspectFactory(RegisterPipeline next)
         {
             // Create Factory Method registration aspect
-            return (IUnityContainer container, IPolicySet set, object[] args) =>
+            return (IUnityContainer container, ImplicitRegistration registration, object[] args) =>
             {
-                switch (set.Get(typeof(IInjectionFactory)))
+                switch (registration.Get(typeof(IInjectionFactory)))
                 {
                     //case Func<IUnityContainer, Type, string, object> function:
                     //    ((ImplicitRegistration)set).ResolveMethod = (ref ResolutionContext context) => function(context.LifetimeContainer.Container, type, name);
@@ -22,7 +21,7 @@ namespace Unity.Aspects
                     //    break;
 
                     default:
-                        next?.Invoke(container, set, args);
+                        next?.Invoke(container, registration, args);
                         break;
                 }
             };

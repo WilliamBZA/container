@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Globalization;
 using System.Reflection;
-using Unity.Build.Selected;
 using Unity.Registration;
 
 namespace Unity.Build.Selection
@@ -10,12 +9,9 @@ namespace Unity.Build.Selection
     {
         public static SelectConstructorPipeline SelectConstructorPipelineFactory(SelectConstructorPipeline next)
         {
-            return (IUnityContainer container, ImplicitRegistration registration) =>
+            return (IUnityContainer container, Type type) =>
             {
                 int max = -1;
-                var type = registration is ExplicitRegistration explicitRegistration 
-                         ? (explicitRegistration.MappedToType ?? explicitRegistration.Type) 
-                         : registration.Type;
                 ConstructorInfo secondBest = null;
                 ConstructorInfo constructor = null;
                 foreach (var ctor in type.GetTypeInfo().DeclaredConstructors)
@@ -34,7 +30,7 @@ namespace Unity.Build.Selection
                      max == secondBest.GetParameters().Length)
                 {
                     // Give next handler a chance to resolve
-                    var result = next?.Invoke(container, registration);
+                    var result = next?.Invoke(container, type);
                     if (null != result) return result;
 
                     throw new InvalidOperationException(

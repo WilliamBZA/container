@@ -63,22 +63,6 @@ namespace Unity.Strategies
 
         public override void PostBuildUp(IBuilderContext context)
         {
-            if (context.Registration is ImplicitRegistration registration && 
-                null != registration.BuildChain &&
-                null != context.Registration.Get<IBuildPlanPolicy>())
-            {
-                var chain = new List<BuilderStrategy>();
-                var strategies = registration.BuildChain;
-
-                for (var i = 0; i < strategies.Count; i++)
-                {
-                    var strategy = strategies[i];
-                    if (!(strategy is BuildKeyMappingStrategy))
-                        chain.Add(strategy);
-                }
-
-                registration.BuildChain = chain;
-            }
         }
         
         #endregion
@@ -106,7 +90,7 @@ namespace Unity.Strategies
             //// Validate input
             //if (null == registration.MappedToType || registration.RegisteredType == registration.MappedToType) return false;
 
-            //// Require Re-Resolve if no injectors specified
+            //// Require Re-ResolveMethod if no injectors specified
             //var buildRequired = registration.LifetimeManager is IRequireBuildUpPolicy ||
             //    (null == injectionMembers ? false : injectionMembers.Any(m => m.BuildRequired));
 

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Reflection;
 using Unity.Build.Pipeline;
 using Unity.Builder;
-using Unity.Builder.Strategy;
 using Unity.Storage;
 
 namespace Unity.Registration
@@ -46,9 +46,7 @@ namespace Unity.Registration
 
         #region Public Members
 
-        public ResolveMethod ResolveMethod { get; set; }
-
-        public virtual IList<BuilderStrategy> BuildChain { get; set; }
+        public virtual ResolveMethod ResolveMethod { get; set; }
 
         public bool EnableOptimization { get; set; } = true;
 
@@ -57,6 +55,12 @@ namespace Unity.Registration
 
         #region IPolicySet
 
+
+        public void Add(Type policyInterface, object value)
+        {
+            _next = new LinkedNode<Type, object>(policyInterface, value, _next);
+        }
+        
         public virtual object Get(Type policyInterface)
         {
             for (var node = _next; node != null; node = node.Next)
@@ -84,9 +88,21 @@ namespace Unity.Registration
             return null;
         }
 
-        public virtual void Set(Type policyInterface, object policy)
+        public virtual void Set(Type policyInterface, object value)
         {
-            _next = new LinkedNode<Type, object>(policyInterface, policy, _next);
+            var hash = policyInterface?.GetHashCode() ?? 0;
+            for (var node = _next; node != null; node = node.Next)
+            {
+                if (node.Hash == hash && node.Key == policyInterface)
+                {
+                    // Found it
+                    node.Value = value;
+                    return;
+                }
+            }
+
+            // Not found, so add a new one
+            _next = new LinkedNode<Type, object>(policyInterface, value, _next);
         }
 
         public void Set(Type type, string name, Type policyInterface, object policy)
@@ -102,10 +118,8 @@ namespace Unity.Registration
 
         public virtual void Clear(Type policyInterface)
         {
-            LinkedNode<Type, object> node;
-            LinkedNode<Type, object> last = _next;
-
-            for (node = _next; node != null; node = node.Next)
+            var last = _next;
+            for (var node = _next; node != null; node = node.Next)
             {
                 if (ReferenceEquals(node.Key, policyInterface))
                     last.Next = node.Next;
@@ -120,11 +134,9 @@ namespace Unity.Registration
                 Clear(policyInterface);
             else
             {
-                LinkedNode<Type, object> node;
-                LinkedNode<Type, object> last = _foregn;
-
+                var last = _foregn;
                 var hash = (type?.GetHashCode() ?? 0) * 37 + name?.GetHashCode() ?? 0;
-                for (node = _foregn; node != null; node = node.Next)
+                for (var node = _foregn; node != null; node = node.Next)
                 {
                     if (node.Hash == hash && ReferenceEquals(node.Key, policyInterface))
                         last.Next = node.Next;
@@ -134,20 +146,66 @@ namespace Unity.Registration
             }
         }
 
-        #endregion
-
-
-        #region Enumerable
-
-        public IEnumerable<object> OfType<T>()
+        public IEnumerable<object> OfType<T>(bool exactMatch = false)
         {
-            for (var node = _next; node != null; node = node.Next)
+            if (exactMatch)
             {
-                if (typeof(T) != node.Key) continue;
+                for (var node = _next; node != null; node = node.Next)
+                {
+                    if (typeof(T) == node.Key) continue;
+                    yield return node.Value;
+                }
+            }
+            else
+            {
+                var info = typeof(T).GetTypeInfo();
+                for (var node = _next; node != null; node = node.Next)
+                {
+                    if (!info.IsAssignableFrom(node.Key?.GetTypeInfo())) continue;
 
-                yield return node.Value;
+                    yield return node.Value;
+                }
             }
         }
+
+        public IEnumerable<object> PopType<T>(bool exactMatch = false)
+        {
+            var last = _next;
+            if (exactMatch)
+            {
+                for (var node = _next; node != null; node = node.Next)
+                {
+                    if (typeof(T) == node.Key)
+                    {
+                        var value = node.Value;
+                        last.Next = node.Next;
+                        node = last;
+
+                        yield return value;
+                    }
+
+                    last = node;
+                }
+            }
+            else
+            {
+                var info = typeof(T).GetTypeInfo();
+                for (var node = _next; node != null; node = node.Next)
+                {
+                    if (info.IsAssignableFrom(node.Key?.GetTypeInfo()))
+                    {
+                        var value = node.Value;
+                        last.Next = node.Next;
+                        node = last;
+
+                        yield return value;
+                    }
+
+                    last = node;
+                }
+            }
+        }
+
 
         #endregion
 

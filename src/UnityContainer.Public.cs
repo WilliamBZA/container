@@ -47,7 +47,7 @@ namespace Unity
             }
 
             // Register type
-            _staticRegisterPipeline(this, new ExplicitRegistration(typeFrom, name, typeTo, lifetimeManager), injectionMembers);
+            _staticRegistrationPipeline(this, new ExplicitRegistration(typeFrom, name, typeTo, lifetimeManager), injectionMembers);
 
             return this;
         }
@@ -85,7 +85,7 @@ namespace Unity
             lifetime.SetValue(instance);
 
             // Register instance
-            _instanceRegisterPipeline(this, new ExplicitRegistration(registeredType ?? instance.GetType(), name, lifetime));
+            _instanceRegistrationPipeline(this, new ExplicitRegistration(registeredType ?? instance.GetType(), name, lifetime));
 
             return this;
         }

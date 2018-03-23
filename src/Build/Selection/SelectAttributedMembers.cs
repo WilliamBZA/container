@@ -3,7 +3,6 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Unity.Attributes;
-using Unity.Build.Injection;
 using Unity.Registration;
 
 namespace Unity.Build.Selection
@@ -12,9 +11,8 @@ namespace Unity.Build.Selection
     {
         public static SelectConstructorPipeline SelectConstructorPipelineFactory(SelectConstructorPipeline next)
         {
-            return (IUnityContainer container, ImplicitRegistration registration) =>
+            return (IUnityContainer container, Type type) =>
             {
-                var type = registration.Type;
                 ConstructorInfo constructor = null;
                 foreach (var ctor in type.GetTypeInfo().DeclaredConstructors)
                 {
@@ -34,31 +32,31 @@ namespace Unity.Build.Selection
                 if (null != constructor)
                     return new InjectionConstructor(constructor);
 
-                return next?.Invoke(container, registration);
+                return next?.Invoke(container, type);
             };
         }
 
-        public static SelectMethodsPipeline SelectMethodsPipelineFactory(SelectMethodsPipeline next)
+        public static InjectionMembersPipeline SelectMethodsPipelineFactory(InjectionMembersPipeline next)
         {
-            return (IUnityContainer container, ImplicitRegistration registration) =>
+            return (IUnityContainer container, Type type) =>
             {
-                return registration.Type.GetTypeInfo()
-                                   .DeclaredMethods
-                                   .Where(method => method.IsDefined(typeof(InjectionMethodAttribute), true))
-                                   .Select(method => new InjectionMethod(method))
-                                   .Concat(next?.Invoke(container, registration) ?? Enumerable.Empty<IInjectionMethod>());
+                return type.GetTypeInfo()
+                           .DeclaredMethods
+                           .Where(method => method.IsDefined(typeof(InjectionMethodAttribute), true))
+                           .Select(method => new InjectionMethod(method))
+                           .Concat(next?.Invoke(container, type) ?? Enumerable.Empty<InjectionMethod>());
             };
         }
 
-        public static SelectPropertiesPipeline SelectPropertiesPipelineFactory(SelectPropertiesPipeline next)
+        public static InjectionMembersPipeline SelectPropertiesPipelineFactory(InjectionMembersPipeline next)
         {
-            return (IUnityContainer container, ImplicitRegistration registration) =>
+            return (IUnityContainer container, Type type) =>
             {
-                return registration.Type.GetTypeInfo()
-                                   .DeclaredProperties
-                                   .Where(property => property.IsDefined(typeof(DependencyAttribute), true))
-                                   .Select(property => new InjectionProperty(property))
-                                   .Concat(next?.Invoke(container, registration) ?? Enumerable.Empty<IInjectionProperty>());
+                return type.GetTypeInfo()
+                           .DeclaredProperties
+                           .Where(property => property.IsDefined(typeof(DependencyAttribute), true))
+                           .Select(property => new InjectionProperty(property))
+                           .Concat(next?.Invoke(container, type) ?? Enumerable.Empty<InjectionProperty>());
             };
         }
 

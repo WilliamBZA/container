@@ -46,7 +46,7 @@ namespace Unity.ObjectBuilder.BuildPlan.Selection
             // TODO:
             //foreach (ParameterInfo parameter in method.GetParameters())
             //{
-            //    result.AddParameterResolver(this.CreateResolver(parameter));
+            //    result.AddParameterResolver(this.ResolveMethod(parameter));
             //}
 
             return result;

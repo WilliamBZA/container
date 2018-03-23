@@ -48,6 +48,8 @@ namespace System.Reflection
 
         public bool ContainsGenericParameters => _type.ContainsGenericParameters;
 
+        public bool IsConstructedGenericType => _type.IsGenericType && !_type.ContainsGenericParameters;
+
     #region moved over from Type
 
         //// Fields
@@ -185,12 +187,24 @@ namespace System.Reflection
             return left?.GetHashCode() != right?.GetHashCode();
         }
 
+        public Type GetGenericTypeDefinition()
+        {
+            return _type.GetGenericTypeDefinition();
+        }
     }
 #endif
 
 
-    internal static class IntrospectionExtensions
+    internal static class CompatibilityExtensions
     {
+#if NETSTANDARD1_0
+        public static System.Reflection.ConstructorInfo[] GetConstructors(this System.Type type)
+        {
+            var ctors = type.GetTypeInfo().DeclaredConstructors;
+            return ctors is ConstructorInfo[] array ? array : ctors.ToArray();
+        }
+#endif
+
 #if NET40
         public static Attribute GetCustomAttribute(this ParameterInfo parameter, Type type)
         {

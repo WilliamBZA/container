@@ -43,7 +43,7 @@ namespace Unity.ObjectBuilder.BuildPlan.Selection
             foreach (ParameterInfo param in ctor.GetParameters())
             {
                 // TODO:
-                //result.AddParameterResolver(CreateResolver(param));
+                //result.AddParameterResolver(ResolveMethod(param));
             }
 
             return result;

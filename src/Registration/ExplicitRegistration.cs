@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Linq.Expressions;
 using Unity.Build.Factory;
+using Unity.Build.Pipeline;
 using Unity.Lifetime;
 
 namespace Unity.Registration
@@ -35,6 +37,13 @@ namespace Unity.Registration
         #endregion
 
 
+        #region Public Members
+
+        public virtual ResolveMethodFactory<Type> ResolveFactory { get; set; }
+
+        #endregion
+
+
         #region IContainerRegistration
 
         public Type RegisteredType => Type;
@@ -51,15 +60,6 @@ namespace Unity.Registration
         /// <remarks>
         /// This property will be null if this registration is for an open generic.</remarks>
         public LifetimeManager LifetimeManager { get; }
-
-        #endregion
-
-
-        #region IResolveMethodFactory
-
-        public ResolveMethodFactory<Type[]> ResolveGenericFactory { get; set; }
-
-        public ResolveMethodFactory<Type> ResolveMethodFactory { get; set; }
 
         #endregion
     }

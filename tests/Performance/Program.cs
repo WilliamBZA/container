@@ -10,7 +10,7 @@ namespace Performance
         {
             //var container = new UnityContainer();
 
-            //var res = container.Resolve(typeof(IUnityContainer), null, null);
+            //var res = container.ResolveMethod(typeof(IUnityContainer), null, null);
 
             //if (0 == args.Length)
             //    BenchmarkSwitcher.FromAssembly(typeof(Program).GetTypeInfo().Assembly).RunAllJoined();

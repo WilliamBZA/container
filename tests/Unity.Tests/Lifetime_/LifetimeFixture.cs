@@ -310,7 +310,7 @@ namespace Unity.Tests.Lifetime
         }
 
         /// <summary>
-        /// Registering a type in both parent as well as child. Now trying to Resolve from both
+        /// Registering a type in both parent as well as child. Now trying to ResolveMethod from both
         /// check if same or diff instances are returned.
         /// </summary>
         [TestMethod]
@@ -354,7 +354,7 @@ namespace Unity.Tests.Lifetime
 
         /// <summary>
         /// Verify Lifetime managers. When registered using externally controlled. Should return me with new 
-        /// instance every time when asked by Resolve.
+        /// instance every time when asked by ResolveMethod.
         /// Bug ID : 16372
         /// </summary>
         [TestMethod]
@@ -373,7 +373,7 @@ namespace Unity.Tests.Lifetime
 
         /// <summary>
         /// Verify Lifetime managers. When registered using container controlled and freed, even then
-        /// same instance is returned when asked for Resolve.
+        /// same instance is returned when asked for ResolveMethod.
         /// </summary>
         [TestMethod]
         public void UseContainerControlledLifetime()
@@ -396,7 +396,7 @@ namespace Unity.Tests.Lifetime
         }
 
         /// <summary>
-        /// The Resolve method returns the object registered with the named mapping, 
+        /// The ResolveMethod method returns the object registered with the named mapping, 
         /// or raises an exception if there is no mapping that matches the specified name. Testing this scenario
         /// Bug ID : 16371
         /// </summary>

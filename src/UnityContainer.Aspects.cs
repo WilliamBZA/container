@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using Unity.Build.Context;
@@ -18,9 +19,9 @@ namespace Unity
         private static RegisterPipeline StaticRegistrationAspectFactory(RegisterPipeline next)
         {
             // Setup and add registration to container
-            return (IUnityContainer container, IPolicySet set, object[] args) =>
+            return (IUnityContainer container, ImplicitRegistration registration, object[] args) =>
             {
-                var registration = (ExplicitRegistration)set;
+                var explicitRegistration = (ExplicitRegistration)registration;
 
                 // Add injection members policies to the registration
                 if (null != args && 0 < args.Length)
@@ -28,22 +29,22 @@ namespace Unity
                     foreach (var member in args.OfType<InjectionMember>())
                     {
                         // Enforce no MappedToType with InjectionFactory
-                        if (member is InjectionFactory && registration.MappedToType != registration.RegisteredType)
+                        if (member is InjectionFactory && explicitRegistration.MappedToType != explicitRegistration.RegisteredType)
                             throw new InvalidOperationException("Registration where both MappedToType and InjectionFactory are set is not supported");
 
                         // Mark as requiring build if any of injectors marked with IRequireBuild
-                        if (member is IRequireBuild) registration.BuildRequired = true;
+                        if (member is IRequireBuild) explicitRegistration.BuildRequired = true;
 
                         // Add policies
-                        member.AddPolicies(registration.RegisteredType, registration.Name, registration.MappedToType, registration);
+                        member.AddPolicies(explicitRegistration.RegisteredType, explicitRegistration.Name, explicitRegistration.MappedToType, explicitRegistration);
                     }
                 }
 
                 // Add to appropriate storage
-                var target = registration.LifetimeManager is ISingletonLifetimePolicy ? ((UnityContainer)container)._root : container;
+                var target = explicitRegistration.LifetimeManager is ISingletonLifetimePolicy ? ((UnityContainer)container)._root : container;
 
                 // Add or replace if exists 
-                var previous = ((UnityContainer)target).Register((ImplicitRegistration)set);
+                var previous = ((UnityContainer)target).Register(registration);
                 if (previous is ExplicitRegistration old && old.LifetimeManager is IDisposable disposable)
                 {
                     // Dispose replaced lifetime manager
@@ -52,11 +53,11 @@ namespace Unity
                 }
 
                 // If Disposable add to container's lifetime
-                if (registration.LifetimeManager is IDisposable manager)
+                if (explicitRegistration.LifetimeManager is IDisposable manager)
                     ((UnityContainer)target)._lifetimeContainer.Add(manager);
 
                 // Build rest of pipeline
-                next?.Invoke(container, set);
+                next?.Invoke(container, registration);
                 //if (null == registration.LifetimeManager.GetValue(((UnityContainer)target)._lifetimeContainer))
             };
         }
@@ -64,69 +65,36 @@ namespace Unity
         public static RegisterPipeline DynamicRegistrationAspectFactory(RegisterPipeline next)
         {
             // Analise registration and generate mappings
-            return (IUnityContainer container, IPolicySet set, object[] args) =>
+            return (IUnityContainer container, ImplicitRegistration registration, object[] args) =>
             {
-                // TODO: add case of re-resolve
-
-                // Build rest of pipeline, no mapping required
-                next?.Invoke(container, set, args);
-            };
-        }
-
-        #endregion
-
-
-        #region Mapping aspect
-
-        public static RegisterPipeline MappingAspectFactory(RegisterPipeline next)
-        {
-            // Analise registration and generate mappings
-            return (IUnityContainer container, IPolicySet set, object[] args) =>
-            {
-                // TODO: add case of re - resolve
-
-                switch (set)
+                var info = registration.Type.GetTypeInfo();
+                
+                // Generic types require implementation
+                if (info.IsGenericType)     
                 {
-                    // Explicit registration
-                    case ExplicitRegistration explicitRegistration:
-                        if (null != explicitRegistration.MappedToType && explicitRegistration.RegisteredType != explicitRegistration.MappedToType)
-                        {
-                            if (explicitRegistration.MappedToType.GetTypeInfo().IsGenericTypeDefinition)
-                            {
-                                // Create generic factory here 
+                    // Find implementation for this type
+                    var unity = (UnityContainer) container;
+                    var definition = info.GetGenericTypeDefinition();
+                    var registry = unity._getType(definition) ??
+                                   throw new InvalidOperationException("No such type"); // TODO: Add proper error message
 
-                                // Really no need to do anything
-                                var definition = explicitRegistration.MappedToType;
-                                set.Set(typeof(MapType), (MapType)((Type[] getArgs) => definition.MakeGenericType(getArgs)));
-                            }
+                    // This registration must be present to proceed
+                    var target = (string.IsNullOrEmpty(registration.Name) 
+                               ? registry[null] ??
+                                 registry[string.Empty]
+                               : registry[registration.Name] ??
+                                 registry[null] ?? 
+                                 registry[string.Empty]) 
+                               ?? throw new InvalidOperationException("No such type");    // TODO: Add proper error message
 
-                            // Build rest of pipeline
-                            next?.Invoke(container, set, explicitRegistration.MappedToType);
-                            return;
-                        }
-
-                        break;
-
-                    // Implicit registration
-                    case ImplicitRegistration internalRegistration:
-                        var info = internalRegistration.Type.GetTypeInfo();
-                        if (info.IsGenericType)
-                        {
-                            var definition = info.GetGenericTypeDefinition();
-                            var registry = ((UnityContainer) container)._getType(definition) ?? throw  new InvalidOperationException("No such type");                             // TODO: Add proper error message
-                            var target = registry[internalRegistration.Name] ?? registry[null] ?? registry[string.Empty] ?? throw new InvalidOperationException("No such type");  // TODO: Add proper error message
-                            
-                            var map = target.Get<MapType>();
-
-                            // Build rest of pipeline
-                            next?.Invoke(container, set, map(info.GenericTypeArguments), target);
-                            return;
-                        }
-                        break;
+                    // Build rest of pipeline
+                    next?.Invoke(container, registration, target, unity._lifetimeContainer);
                 }
-
-                // Build rest of pipeline, no mapping required
-                next?.Invoke(container, set, args);
+                else
+                {
+                    // Build rest of pipeline
+                    next?.Invoke(container, registration);
+                }
             };
         }
 
@@ -138,55 +106,36 @@ namespace Unity
 
         public static RegisterPipeline BuildAspectFactory(RegisterPipeline next)
         {
-            return (IUnityContainer container, IPolicySet set, object[] args) =>
+            return (IUnityContainer container, ImplicitRegistration registration, object[] args) =>
             {
                 var unity = (UnityContainer) container;
 
-                switch (set)
+                switch (registration)
                 {
                     // Explicit registration
                     case ExplicitRegistration explicitRegistration:
                         var buildType = explicitRegistration.MappedToType ?? 
                                         explicitRegistration.RegisteredType;
-
+                        var buildTypeInfo = buildType.GetTypeInfo();
                         if (null == buildType)
                         {
                         }
-                        else if (buildType.GetTypeInfo().IsGenericTypeDefinition)   // Create generic type factory
+                        else if (buildTypeInfo.IsGenericTypeDefinition)   
                         {
-                            var ctor = unity._constructorSelectionPipeline(container, explicitRegistration);
-                            var methods = unity._methodsSelectionPipeline(container,  explicitRegistration);
-                            var properties = unity._propertiesSelectionPipeline(container, explicitRegistration);
-
-                            explicitRegistration.ResolveMethodFactory = (Type createdType) =>
-                            {
-                                var ctorResolve = ctor.ResolveMethodFactory(createdType);
-                                //var methodsResolve = methods.ResolveMethodFactory(createdType);
-                                //var propertiesResolve = properties.ResolveMethodFactory(createdType);
-
-                                return (ref ResolutionContext context) =>
-                                {
-                                    context.Existing = ctorResolve(ref context);
-                                    //context.Existing = propertiesResolve(ref context);
-                                    //context.Existing = methodsResolve(ref context);
-
-                                    return context.Existing;
-                                };
-                            };
+                            // Create generic type factory
+                            explicitRegistration.ResolveFactory = MakeGenericFactory((UnityContainer) container, explicitRegistration);
                         }
+#if NET40
+                        else if (buildTypeInfo.IsConstructedGenericType)
+#else
                         else if (buildType.IsConstructedGenericType)
+#endif
                         {
-                            
                         }
                         else
                         {
                             
                         }
-
-                        // Build rest of pipeline
-                        next?.Invoke(container, set, explicitRegistration.MappedToType);
-                        return;
-
                         break;
 
                     // Implicit registration
@@ -194,94 +143,54 @@ namespace Unity
                         var info = internalRegistration.Type.GetTypeInfo();
                         if (info.IsGenericType)
                         {
-                            var targetType = (Type)args[0];
-                            var targetSet = (ExplicitRegistration)args[1];
+                            //var targetType = (Type)args[0];
+                            //var targetSet = (ExplicitRegistration)args[1];
 
-                            internalRegistration.ResolveMethod = targetSet.ResolveMethodFactory(targetType);
+                            //internalRegistration.ResolveMethod = targetSet.ResolveMethodFactory(targetType);
 
-                            // Build rest of pipeline
-                            next?.Invoke(container, set);
-                            return;
+                            //// Build rest of pipeline
+                            //next?.Invoke(container, set);
+                            //return;
                         }
                         break;
                 }
 
-
-                //Type type;
-                //var container = (UnityContainer)unity;
-                //var registration = (ImplicitRegistration)set;
-
-                //switch (args?.Length)
-                //{
-                //    case 1:     // Mapped POCO
-                //        type = (Type)args[0];
-                //        break;
-
-                //    case 2:     // Mapped generic with source
-                //        type = (Type)args[0];
-                //        registration = (ImplicitRegistration)args[1];
-                //        break;
-
-                //    default:    // No mapping    
-                //        type = registration.Type;
-                //        break;
-                //}
-
-                //var info = type.GetTypeInfo();
-
-                //if (info.IsGenericTypeDefinition)
-                //{
-
-
-                //    // Add factory
-                //    //set.Set(typeof(ResolveFactory<Type>), ctor.ResolveFactory);
-
-
-                //    //buildMethod = (ref ResolutionContext c) =>
-                //    //{
-                //    //    ResolveMethod ctorMethod = ctor.ResolveFactory(type);
-                //    //    //Resolve properties
-                //    //    //Resolve methods
-
-                //    //    buildMethod = (ref ResolutionContext context) =>
-                //    //    {
-                //    //        //context.Existing = createMethod(ref context);
-                //    //        //context.Existing = properties(ref context);
-                //    //        //context.Existing = methods(ref context);
-                //    //        return context.Existing;
-                //    //    };
-
-                //    //    // Cleanup
-
-                //    //    return buildMethod(ref c);
-                //    //};
-                //}
-                //else if (type.IsConstructedGenericType)
-                //{
-                //    var factory = registration.Get<ResolveFactory<Type>>();
-                //    ResolveMethod buildMethod = factory?.Invoke(type);
-
-                //    // Cleanup
-                //}
-
-                //// Build rest of pipeline
-                //next?.Invoke(unity, set, args);
-
-                //// TODO: set.Clear(typeof(SelectConstructor)); // Release injectors and such
-                //// TODO: Asynchronously create and compile expression
-
-                //// Build
-                //var pipeline = ((ImplicitRegistration)set).ResolveMethod;
-                //((ImplicitRegistration)set).ResolveMethod = (ref ResolutionContext context) =>
-                //{
-                //    context.Existing = pipeline?.Invoke(ref context);// ??
-                //    //                   buildMethod(ref context);
-
-                //    return context.Existing;
-                //};
+                // Build rest of pipeline
+                next?.Invoke(container, registration);
             };
         }
 
         #endregion
+
+        private static ResolveMethodFactory<Type> MakeGenericFactory(UnityContainer container, ExplicitRegistration registration)
+        {
+            InjectionConstructor ctor = null;
+            var targetType = registration.MappedToType ?? registration.RegisteredType;
+            var members = registration.PopType<InjectionMember>()
+                                      .Where(m => 
+                                          {
+                                              if (!(m is InjectionConstructor constructor)) return true;
+                                              ctor = constructor;
+                                              return false;
+                                          })
+                                      .Cast<InjectionMember>()
+                                      .Concat(container._injectionMembersPipeline(container, targetType));
+
+            return (Type type) =>
+            {
+                var memberResolves = members.Select(m => m.ResolveFactory ?? (null != m.ResolveMethod ? t => m.ResolveMethod : (ResolveMethodFactory<Type>)null))
+                                            .Where(f => null != f)
+                                            .Select(f => f(type))
+                                            .ToArray();
+                var objectResolver = ctor.ResolveFactory(type);
+
+                return (ref ResolutionContext context) =>
+                {
+                    context.Existing = objectResolver(ref context);
+                    foreach (var resolveMethod in memberResolves) resolveMethod(ref context); // TODO: Could be executed in parallel
+                    return  context.Existing;
+                };
+            };
+        }
     }
 }

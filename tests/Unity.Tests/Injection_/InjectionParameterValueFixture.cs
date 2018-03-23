@@ -85,7 +85,7 @@ namespace Unity.Tests.Injection
             //InjectionParameter parameter = (InjectionParameter)values[0];
             //Assert.AreEqual(typeof(int), parameter.ParameterType);
             //IResolverPolicy policy = parameter.GetResolverPolicy(null);
-            //int result = (int)policy.Resolve(null);
+            //int result = (int)policy.ResolveMethod(null);
 
             //Assert.AreEqual(15, result);
         }

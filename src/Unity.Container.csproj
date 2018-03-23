@@ -22,6 +22,7 @@
     <RootNamespace>Unity</RootNamespace>
     <PackageTags>Unity Container unitycontainer Microsoft.Practices.Unity IoC</PackageTags>
     <UnityAbstractions>..\..\Abstractions\src\Unity.Abstractions.csproj</UnityAbstractions>
+    <TargetFrameworks>netstandard1.0;netstandard2.0;net47;net46;net45;net40;netcoreapp1.0;netcoreapp2.0</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' != '' AND '$(TargetFramework)' != 'netstandard1.0' ">
@@ -32,13 +33,11 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <OutputPath>$(SolutionDir)lib</OutputPath>
-    <TargetFrameworks>netstandard1.0;netstandard2.0;net47;net46;net45;netcoreapp1.0;netcoreapp2.0</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugType>Full</DebugType>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <TargetFrameworks>netstandard1.0;netstandard2.0;net46;net45;netcoreapp1.0;netcoreapp2.0</TargetFrameworks>
   </PropertyGroup>
   
   <ItemGroup Condition="Exists('$(UnityAbstractions)')">

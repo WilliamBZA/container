@@ -27,7 +27,7 @@ namespace Unity.ObjectBuilder.BuildPlan.Selection
         /// <returns>The resolver object.</returns>
         protected override IResolverPolicy CreateResolver(ParameterInfo parameter)
         {
-            // Resolve all DependencyAttributes on this parameter, if any
+            // ResolveMethod all DependencyAttributes on this parameter, if any
             var attrs = (parameter ?? throw new ArgumentNullException(nameof(parameter))).GetCustomAttributes(false)
                                                                                          .OfType<DependencyResolutionAttribute>()
                                                                                          .ToArray();

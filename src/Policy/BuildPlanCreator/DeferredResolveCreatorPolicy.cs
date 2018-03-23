@@ -54,7 +54,7 @@ namespace Unity.Policy.BuildPlanCreator
         {
             Type trampolineType = typeof(ResolveTrampoline<>).MakeGenericType(typeToBuild);
             Type delegateType = typeof(Func<>).MakeGenericType(typeToBuild);
-            MethodInfo resolveMethod = trampolineType.GetTypeInfo().GetDeclaredMethod("Resolve");
+            MethodInfo resolveMethod = trampolineType.GetTypeInfo().GetDeclaredMethod("ResolveMethod");
 
             object trampoline = Activator.CreateInstance(trampolineType, currentContainer, nameToBuild);
             return resolveMethod.CreateDelegate(delegateType, trampoline);
