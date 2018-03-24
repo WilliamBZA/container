@@ -13,6 +13,9 @@ namespace Unity.Container.Tests
         [TestMethod]
         public void Development_CurrentTest()
         {
+            Assert.IsNotNull(_container.Resolve<object>());
+
+
             _container.RegisterType(typeof(IList<>), typeof(List<>), new InjectionConstructor());
 
             Assert.IsNotNull(_container.Resolve<IList<object>>());

@@ -26,7 +26,7 @@ namespace Unity.Strategies
         public override void PreBuildUp(IBuilderContext context)
         {
             if (context.OriginalBuildKey is ExplicitRegistration registration && 
-                registration.RegisteredType == registration.MappedToType)
+                registration.Type == registration.MappedToType)
                 return;
                 
             IBuildKeyMappingPolicy policy = context.Registration.Get<IBuildKeyMappingPolicy>() 

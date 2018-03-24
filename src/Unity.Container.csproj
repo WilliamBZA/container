@@ -53,6 +53,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Build\Pipeleine\" />
     <Folder Include="Select\" />
   </ItemGroup>
 

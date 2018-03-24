@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using Unity.Build.Context;
 using Unity.Build.Factory;
 using Unity.Build.Pipeleine;
+using Unity.Build.Pipeline;
 using Unity.Build.Policy;
 using Unity.Lifetime;
 using Unity.Registration;
@@ -19,76 +19,72 @@ namespace Unity
         private static RegisterPipeline StaticRegistrationAspectFactory(RegisterPipeline next)
         {
             // Setup and add registration to container
-            return (IUnityContainer container, ImplicitRegistration registration, object[] args) =>
+            return (ILifetimeContainer container, IPolicySet set, object[] args) =>
             {
-                var explicitRegistration = (ExplicitRegistration)registration;
-
                 // Add injection members policies to the registration
+                var registration = (ExplicitRegistration)set;
                 if (null != args && 0 < args.Length)
                 {
                     foreach (var member in args.OfType<InjectionMember>())
                     {
-                        // Enforce no MappedToType with InjectionFactory
-                        if (member is InjectionFactory && explicitRegistration.MappedToType != explicitRegistration.RegisteredType)
+                        // Validate against MappedToType with InjectionFactory
+                        if (member is InjectionFactory && registration.MappedToType != registration.Type)  // TODO: Add proper error message
                             throw new InvalidOperationException("Registration where both MappedToType and InjectionFactory are set is not supported");
 
-                        // Mark as requiring build if any of injectors marked with IRequireBuild
-                        if (member is IRequireBuild) explicitRegistration.BuildRequired = true;
+                        // Mark as requiring build if any one of the injectors are marked with IRequireBuild
+                        if (member is IRequireBuild) registration.BuildRequired = true;
 
                         // Add policies
-                        member.AddPolicies(explicitRegistration.RegisteredType, explicitRegistration.Name, explicitRegistration.MappedToType, explicitRegistration);
+                        member.AddPolicies(registration.Type, registration.Name, registration.MappedToType, registration);
                     }
                 }
 
                 // Add to appropriate storage
-                var target = explicitRegistration.LifetimeManager is ISingletonLifetimePolicy ? ((UnityContainer)container)._root : container;
+                var lifetime = ((ExplicitRegistration)registration).LifetimeManager;
+                var unity = lifetime is ISingletonLifetimePolicy ? ((UnityContainer)container.Container)._root : (UnityContainer)container.Container;
 
                 // Add or replace if exists 
-                var previous = ((UnityContainer)target).Register(registration);
-                if (previous is ExplicitRegistration old && old.LifetimeManager is IDisposable disposable)
+                var previous = unity.Register(registration);
+                if (previous is ExplicitRegistration old && old.LifetimeManager is IDisposable disposableOld)
                 {
                     // Dispose replaced lifetime manager
-                    ((UnityContainer)target)._lifetimeContainer.Remove(disposable);
-                    disposable.Dispose();
+                    unity._lifetimeContainer.Remove(disposableOld);
+                    disposableOld.Dispose();
                 }
 
                 // If Disposable add to container's lifetime
-                if (explicitRegistration.LifetimeManager is IDisposable manager)
-                    ((UnityContainer)target)._lifetimeContainer.Add(manager);
+                if (lifetime is IDisposable) unity._lifetimeContainer.Add(lifetime);
 
                 // Build rest of pipeline
                 next?.Invoke(container, registration);
-                //if (null == registration.LifetimeManager.GetValue(((UnityContainer)target)._lifetimeContainer))
             };
         }
 
         public static RegisterPipeline DynamicRegistrationAspectFactory(RegisterPipeline next)
         {
             // Analise registration and generate mappings
-            return (IUnityContainer container, ImplicitRegistration registration, object[] args) =>
+            return (ILifetimeContainer container, IPolicySet set, object[] args) =>
             {
+                var registration = (ImplicitRegistration)set;
                 var info = registration.Type.GetTypeInfo();
                 
                 // Generic types require implementation
                 if (info.IsGenericType)     
                 {
                     // Find implementation for this type
-                    var unity = (UnityContainer) container;
+                    var unity = (UnityContainer) container.Container;
                     var definition = info.GetGenericTypeDefinition();
                     var registry = unity._getType(definition) ??
                                    throw new InvalidOperationException("No such type"); // TODO: Add proper error message
 
                     // This registration must be present to proceed
-                    var target = (string.IsNullOrEmpty(registration.Name) 
-                               ? registry[null] ??
-                                 registry[string.Empty]
-                               : registry[registration.Name] ??
-                                 registry[null] ?? 
-                                 registry[string.Empty]) 
+                    var target = (null == registration.Name 
+                               ? registry[null]
+                               : registry[registration.Name] ?? registry[null]) 
                                ?? throw new InvalidOperationException("No such type");    // TODO: Add proper error message
 
                     // Build rest of pipeline
-                    next?.Invoke(container, registration, target, unity._lifetimeContainer);
+                    next?.Invoke(container, registration, target);
                 }
                 else
                 {
@@ -103,94 +99,127 @@ namespace Unity
 
         #region Build Aspect
 
-
-        public static RegisterPipeline BuildAspectFactory(RegisterPipeline next)
+        public static RegisterPipeline BuildExplicitRegistrationAspectFactory(RegisterPipeline next)
         {
-            return (IUnityContainer container, ImplicitRegistration registration, object[] args) =>
+            return (ILifetimeContainer container, IPolicySet set, object[] args) =>
             {
-                var unity = (UnityContainer) container;
-
-                switch (registration)
+                var registration = (ExplicitRegistration) set;
+                var buildType = registration.MappedToType ?? registration.Type;
+                var buildTypeInfo = buildType.GetTypeInfo();
+                if (null == buildType)
                 {
-                    // Explicit registration
-                    case ExplicitRegistration explicitRegistration:
-                        var buildType = explicitRegistration.MappedToType ?? 
-                                        explicitRegistration.RegisteredType;
-                        var buildTypeInfo = buildType.GetTypeInfo();
-                        if (null == buildType)
+                }
+                else if (buildTypeInfo.IsGenericTypeDefinition)
+                {
+                    // Create generic type factory
+                    InjectionConstructor ctor = null;
+                    var unity = (UnityContainer)container.Container;
+                    var targetType = registration.MappedToType ?? registration.Type;
+
+                    // Enumerate all injection members
+                    var members = registration.PopType<InjectionMember>()
+                        .Where(m =>
                         {
-                        }
-                        else if (buildTypeInfo.IsGenericTypeDefinition)   
+                            if (!(m is InjectionConstructor constructor)) return true;
+                            ctor = constructor;
+                            return false;
+                        })
+                        .Cast<InjectionMember>()
+                        .Concat(unity._injectionMembersPipeline(unity, targetType));
+
+                    // Create the factory
+                    registration.Resolver = (Type type) =>
+                    {
+                        // Create resolvers for each injection member
+                        var memberResolvers = members.Select(m => m.Resolver)
+                                                     .Where(f => null != f)
+                                                     .Select(f => f(type))
+                                                     .ToArray();
+
+                        // Create object activator
+                        var objectResolver = ctor.Resolver(type);
+
+                        // Create composite resolver
+                        return (ref ResolutionContext context) =>
                         {
-                            // Create generic type factory
-                            explicitRegistration.ResolveFactory = MakeGenericFactory((UnityContainer) container, explicitRegistration);
-                        }
+                            context.Existing = objectResolver(ref context);
+                            foreach (var resolveMethod in memberResolvers) resolveMethod(ref context); // TODO: Could be executed in parallel
+                            return context.Existing;
+                        };
+                    };
+                }
 #if NET40
                         else if (buildTypeInfo.IsConstructedGenericType)
 #else
-                        else if (buildType.IsConstructedGenericType)
+                else if (buildType.IsConstructedGenericType)
 #endif
-                        {
-                        }
-                        else
-                        {
-                            
-                        }
-                        break;
+                {
+                }
+                else
+                {
 
-                    // Implicit registration
-                    case ImplicitRegistration internalRegistration:
-                        var info = internalRegistration.Type.GetTypeInfo();
-                        if (info.IsGenericType)
-                        {
-                            //var targetType = (Type)args[0];
-                            //var targetSet = (ExplicitRegistration)args[1];
-
-                            //internalRegistration.ResolveMethod = targetSet.ResolveMethodFactory(targetType);
-
-                            //// Build rest of pipeline
-                            //next?.Invoke(container, set);
-                            //return;
-                        }
-                        break;
                 }
 
                 // Build rest of pipeline
                 next?.Invoke(container, registration);
+
+            };
+        }
+
+
+        public static RegisterPipeline BuildImplicitRegistrationAspectFactory(RegisterPipeline next)
+        {
+            return (ILifetimeContainer container, IPolicySet set, object[] args) =>
+            {
+                // Build rest of the pipeline first
+                next?.Invoke(container, set, args);
+
+                var registration = (ImplicitRegistration)set;
+
+                // Check if anyone wants to hijack create process
+                // If resolver has been provided, no need to do anything
+                if (null != registration.ResolveMethod)
+                {
+                    registration.EnableOptimization = false;
+                    return;
+                }
+
+                var info = registration.Type.GetTypeInfo();
+                if (info.IsGenericType)
+                {
+                    var genericRegistration = (ExplicitRegistration)args[0];
+                    registration.ResolveMethod = genericRegistration.Resolver?.Invoke(registration.MappedToType) 
+                                               ?? throw new InvalidOperationException("Unable to create resolver");    // TODO: Add proper error message
+                }
+                else
+                {
+//                    // Create activation resolver
+//                    var unity = (UnityContainer)container.Container;
+//                    var ctor = unity._constructorSelectionPipeline(unity, registration.MappedToType);
+
+//                    // Get resolvers for all injection members
+//                    var memberResolvers = unity._injectionMembersPipeline(unity, registration.MappedToType)
+//#if DEBUG
+//                                               .Select(m => m.Resolver ?? throw new InvalidOperationException($"Invalid Injection Member {m}"))
+//#else                                          // Silently ignore null in Release
+//                                               .Where(m => null != m)
+//                                               .Select(m => m.Resolver)
+//#endif
+//                                               .ToArray();  // TODO: This array might not be necessary
+
+//                    // Get object activator
+//                    var objectResolver = ctor.Resolver(registration.MappedToType) ?? throw new InvalidOperationException("Unable to create activator");    // TODO: Add proper error message
+
+//                    registration.ResolveMethod = (ref ResolutionContext context) =>
+//                    {
+//                        context.Existing = objectResolver(ref context);
+//                        foreach (var resolveMethod in memberResolvers) resolveMethod(ref context); // TODO: Could be executed in parallel
+//                        return context.Existing;
+//                    };
+                }
             };
         }
 
         #endregion
-
-        private static ResolveMethodFactory<Type> MakeGenericFactory(UnityContainer container, ExplicitRegistration registration)
-        {
-            InjectionConstructor ctor = null;
-            var targetType = registration.MappedToType ?? registration.RegisteredType;
-            var members = registration.PopType<InjectionMember>()
-                                      .Where(m => 
-                                          {
-                                              if (!(m is InjectionConstructor constructor)) return true;
-                                              ctor = constructor;
-                                              return false;
-                                          })
-                                      .Cast<InjectionMember>()
-                                      .Concat(container._injectionMembersPipeline(container, targetType));
-
-            return (Type type) =>
-            {
-                var memberResolves = members.Select(m => m.ResolveFactory ?? (null != m.ResolveMethod ? t => m.ResolveMethod : (ResolveMethodFactory<Type>)null))
-                                            .Where(f => null != f)
-                                            .Select(f => f(type))
-                                            .ToArray();
-                var objectResolver = ctor.ResolveFactory(type);
-
-                return (ref ResolutionContext context) =>
-                {
-                    context.Existing = objectResolver(ref context);
-                    foreach (var resolveMethod in memberResolves) resolveMethod(ref context); // TODO: Could be executed in parallel
-                    return  context.Existing;
-                };
-            };
-        }
     }
 }

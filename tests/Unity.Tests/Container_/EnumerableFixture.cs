@@ -506,8 +506,8 @@ namespace Unity.Tests.CollectionSupport
 
                 provider.RegisterType<IService>();
                 provider.RegisterType<IService, EmailService>();
-                provider.RegisterType(typeof(IFoo<IService>), typeof(Foo<IService>), "asdf", new ContainerControlledLifetimeManager());
-                provider.RegisterType(typeof(IFoo<>), typeof(Foo<>), "fa", new ContainerControlledLifetimeManager());
+                provider.RegisterType(typeof(IFoo<IService>), "asdf", typeof(Foo<IService>), new ContainerControlledLifetimeManager());
+                provider.RegisterType(typeof(IFoo<>), "fa", typeof(Foo<>), new ContainerControlledLifetimeManager());
                 provider.RegisterInstance<IFoo<IService>>(instance);
 
                 // Act
@@ -557,9 +557,9 @@ namespace Unity.Tests.CollectionSupport
             {
                 // Arrange
                 provider.RegisterType<IService, EmailService>();
-                provider.RegisterType(typeof(IFoo<>), typeof(Foo<>), "1", new ContainerControlledLifetimeManager());
-                provider.RegisterType(typeof(IFoo<>), typeof(Foo<>), "2", new ContainerControlledLifetimeManager());
-                provider.RegisterType(typeof(IFoo<>), typeof(Foo<>), "3", new ContainerControlledLifetimeManager());
+                provider.RegisterType(typeof(IFoo<>), "1", typeof(Foo<>), new ContainerControlledLifetimeManager());
+                provider.RegisterType(typeof(IFoo<>), "2", typeof(Foo<>), new ContainerControlledLifetimeManager());
+                provider.RegisterType(typeof(IFoo<>), "3", typeof(Foo<>), new ContainerControlledLifetimeManager());
 
                 using (var scope = provider.CreateChildContainer())
                 {

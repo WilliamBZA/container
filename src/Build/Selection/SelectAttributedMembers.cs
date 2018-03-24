@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Unity.Attributes;
+using Unity.Build.Pipeline;
 using Unity.Registration;
 
 namespace Unity.Build.Selection

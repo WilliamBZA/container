@@ -28,16 +28,14 @@ namespace Unity.Registration
         {
             Name = name;
             Type = type;
+            MappedToType = type;
 
             _hash = (Type?.GetHashCode() ?? 0 + 37) ^ (Name?.GetHashCode() ?? 0 + 17);
         }
 
         public ImplicitRegistration(Type type, string name, Type policyInterface, object policy)
+            : this(type, name)
         {
-            Name = name;
-            Type = type;
-
-            _hash = (Type?.GetHashCode() ?? 0 + 37) ^ (Name?.GetHashCode() ?? 0 + 17);
             _next = new LinkedNode<Type, object>(policyInterface, policy);
         }
 
@@ -46,9 +44,13 @@ namespace Unity.Registration
 
         #region Public Members
 
-        public virtual ResolveMethod ResolveMethod { get; set; }
+        public bool BuildRequired;
 
-        public bool EnableOptimization { get; set; } = true;
+        public bool EnableOptimization = true;
+
+        public Type MappedToType { get; set; }
+
+        public ResolveMethod ResolveMethod { get; set; }
 
         #endregion
 
@@ -234,6 +236,29 @@ namespace Unity.Registration
         }
 
         #endregion
-
     }
+
+
+    #region Extensions
+
+
+    public static class ImplicitRegistrationExtensions
+    {
+        public static T Get<T>(this ImplicitRegistration registration)
+        {
+            return (T)registration.Get(typeof(T));
+        }
+
+        public static void Set<T>(this ImplicitRegistration registration, object policy)
+        {
+            registration.Set(typeof(T), policy);
+        }
+
+        public static TOut OfType<TType, TOut>(this ImplicitRegistration registration)
+        {
+            return (TOut)registration.Get(typeof(TType));
+        }
+    }
+
+    #endregion
 }

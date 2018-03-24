@@ -13,7 +13,6 @@ using Unity.Builder.Strategy;
 using Unity.Container;
 using Unity.Container.Lifetime;
 using Unity.Events;
-using Unity.Exceptions;
 using Unity.Extension;
 using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Creation;
 using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Method;
@@ -39,7 +38,7 @@ namespace Unity
         internal delegate void SetPolicyDelegate(Type type, string name, Type policyInterface, IBuilderPolicy policy);
         internal delegate void ClearPolicyDelegate(Type type, string name, Type policyInterface);
 
-        internal delegate TPipeline BuildPlan<out TPipeline>(IUnityContainer container, IPolicySet set, ResolveMethodFactory<Type> factory = null);
+        internal delegate TPipeline BuildPlan<out TPipeline>(IUnityContainer container, IPolicySet set, PipelineFactory<Type, ResolveMethod> factory = null);
 
         #endregion
 
@@ -134,13 +133,13 @@ namespace Unity
             _implicitRegistrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { DynamicRegistrationAspectFactory,
                                                                                     LifetimeAspect.ImplicitRegistrationLifetimeAspectFactory,
                                                                                      MappingAspect.ImplicitRegistrationMappingAspectFactory,
-                                                                                                   BuildAspectFactory };
+                                                                                                   BuildImplicitRegistrationAspectFactory };
 
             _explicitRegistrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { StaticRegistrationAspectFactory,
                                                                                     LifetimeAspect.ExplicitRegistrationLifetimeAspectFactory,
                                                                              FactoryDelegateAspect.DelegateAspectFactory,
                                                                                      MappingAspect.ExplicitRegistrationMappingAspectFactory,
-                                                                                                   BuildAspectFactory };
+                                                                                                   BuildExplicitRegistrationAspectFactory };
 
             _instanceRegistrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { StaticRegistrationAspectFactory,
                                                                                     LifetimeAspect.ExplicitRegistrationLifetimeAspectFactory };
@@ -438,7 +437,7 @@ namespace Unity
         {
             var registration = new ImplicitRegistration(type, name);
 
-            _dynamicRegistrationPipeline(this, registration);
+            _dynamicRegistrationPipeline(_lifetimeContainer, registration);
 
             return registration;
         }
@@ -447,7 +446,7 @@ namespace Unity
         {
             var registration = new ImplicitRegistration(type, name, policyInterface, policy);
 
-            _dynamicRegistrationPipeline(this, registration);
+            _dynamicRegistrationPipeline(_lifetimeContainer, registration);
 
             return registration;
         }
@@ -502,6 +501,67 @@ namespace Unity
             }
 
             #endregion
+        }
+
+        #endregion
+
+
+        #region IDisposable Implementation
+
+        /// <summary>
+        /// Dispose this container instance.
+        /// </summary>
+        /// <remarks>
+        /// This class doesn't have a finalizer, so <paramref name="disposing"/> will always be true.</remarks>
+        /// <param name="disposing">True if being called registeredType the IDisposable.Dispose
+        /// method, false if being called registeredType a finalizer.</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposing) return;
+
+            List<Exception> exceptions = null;
+
+            try
+            {
+                _strategies.Invalidated -= OnStrategiesChanged;
+                _parent?._lifetimeContainer.Remove(this);
+                _lifetimeContainer.Dispose();
+            }
+            catch (Exception e)
+            {
+                if (null == exceptions) exceptions = new List<Exception>();
+                exceptions.Add(e);
+            }
+
+            if (null != _extensions)
+            {
+                foreach (IDisposable disposable in _extensions.OfType<IDisposable>()
+                                                              .ToList())
+                {
+                    try
+                    {
+                        disposable.Dispose();
+                    }
+                    catch (Exception e)
+                    {
+                        if (null == exceptions) exceptions = new List<Exception>();
+                        exceptions.Add(e);
+                    }
+                }
+
+                _extensions = null;
+            }
+
+            _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(1);
+
+            if (null != exceptions && exceptions.Count == 1)
+            {
+                throw exceptions[0];
+            }
+            else if (null != exceptions && exceptions.Count > 1)
+            {
+                throw new AggregateException(exceptions);
+            }
         }
 
         #endregion
