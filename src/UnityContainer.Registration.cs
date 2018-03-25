@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Builder;
+using Unity.Container.Registration;
+using Unity.Container.Storage;
 using Unity.Policy;
 using Unity.Registration;
 using Unity.Storage;

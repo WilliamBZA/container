@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Unity.Build.Context;
 using Unity.Build.Pipeline;
-using Unity.Builder;
+using Unity.Container.Registration;
 using Unity.Events;
 using Unity.Exceptions;
 using Unity.Extension;
@@ -111,7 +110,17 @@ namespace Unity
                 //VerifyPipeline<Type> Verify = (Type t) => {};
                 var registration = GetRegistration(type, name);
 
-                ResolveDependency Resolve = (Type t, string n) =>
+
+                ResolutionContext rootContext = new ResolutionContext
+                {
+                    LifetimeContainer = _lifetimeContainer,
+
+                    Registration = registration,
+                    ImplementationType = type,
+                    DeclaringType = null
+                };
+
+                object ResolveMethod(Type t, string n)
                 {
                     // Verify if can resolve this type
                     //Verify(t);
@@ -130,31 +139,22 @@ namespace Unity
                             Registration = GetRegistration(t, n),
                             ImplementationType = t,
                             DeclaringType = resolvingType,
+                            Resolve = rootContext.Resolve
                         };
 
                         resolvingType = t;
                         //Verify = (Type vT) => { if (ResolvingType == vT) throw new InvalidOperationException(); };
 
-                        return ((IResolveMethod)context.Registration).ResolveMethod(ref context);
+                        return ((IResolveMethod) context.Registration).ResolveMethod(ref context);
                     }
                     finally
                     {
                         //Verify = parentVerify;
                         resolvingType = parentResolvingType;
                     }
+                }
 
-                };
-
-                ResolutionContext rootContext = new ResolutionContext
-                {
-                    LifetimeContainer = _lifetimeContainer,
-
-                    Registration = registration,
-                    ImplementationType = type,
-                    DeclaringType = null,
-
-                    Resolve = Resolve
-                };
+                rootContext.Resolve = ResolveMethod;
 
                 return registration.ResolveMethod?.Invoke(ref rootContext);
             }
@@ -172,13 +172,14 @@ namespace Unity
         /// <inheritdoc />
         public object BuildUp(Type type, string name, object existing, params ResolverOverride[] resolverOverrides)
         {
-            // Verify arguments
-            var targetType = type ?? throw new ArgumentNullException(nameof(type));
-            if (null != existing) InstanceIsAssignable(targetType, existing, nameof(existing));
+            throw new NotImplementedException();
+            //// Verify arguments
+            //var targetType = type ?? throw new ArgumentNullException(nameof(type));
+            //if (null != existing) InstanceIsAssignable(targetType, existing, nameof(existing));
 
-            var context = new BuilderContext(this, GetRegistration(targetType, string.IsNullOrEmpty(name) ? null : name), existing, resolverOverrides);
+            //var context = new BuilderContext(this, GetRegistration(targetType, string.IsNullOrEmpty(name) ? null : name), existing, resolverOverrides);
 
-            return BuilUpPipeline(context);
+            //return BuilUpPipeline(context);
         }
 
 

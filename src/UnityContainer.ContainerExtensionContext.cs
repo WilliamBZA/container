@@ -46,53 +46,6 @@ namespace Unity
 
             public override IUnityContainer Container => _container;
 
-            public override IStagedStrategyChain<BuilderStrategy, UnityBuildStage> Strategies
-            {
-                get
-                {
-                    if (null != _container._parent && 
-                        _container._parent._strategies == _container._strategies)
-                    {
-                        lock (syncRoot)
-                        {
-                            if (_container._parent._strategies == _container._strategies)
-                            {
-                                _container._strategies.Invalidated -= _container.OnStrategiesChanged;
-                                _container._strategies = 
-                                    new StagedStrategyChain<BuilderStrategy, UnityBuildStage>(_container._parent._strategies);
-                                _container._strategies.Invalidated += _container.OnStrategiesChanged;
-                                _container._lifetimeContainer.Add(_container._strategies);
-
-                            }
-                        }
-                    }
-
-                    return _container._strategies;
-                }
-            }
-
-            public override IStagedStrategyChain<BuilderStrategy, BuilderStage> BuildPlanStrategies
-            {
-                get
-                {
-                    if (null != _container._parent && 
-                        _container._parent._buildPlanStrategies == _container._buildPlanStrategies)
-                    {
-                        lock (syncRoot)
-                        {
-                            if (_container._parent._buildPlanStrategies == _container._buildPlanStrategies)
-                            {
-                                _container._buildPlanStrategies = 
-                                    new StagedStrategyChain<BuilderStrategy, BuilderStage>(_container._parent._buildPlanStrategies);
-                                _container._lifetimeContainer.Add(_container._buildPlanStrategies);
-                            }
-                        }
-                    }
-
-                    return _container._buildPlanStrategies;
-                }
-            }
-
             public override IPolicyList Policies { get; }
 
             public override ILifetimeContainer Lifetime => _container._lifetimeContainer;

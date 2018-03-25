@@ -13,12 +13,13 @@ namespace Unity.Container.Tests
         [TestMethod]
         public void Development_CurrentTest()
         {
-            Assert.IsNotNull(_container.Resolve<object>());
-
-
+            object resolved;
             _container.RegisterType(typeof(IList<>), typeof(List<>), new InjectionConstructor());
 
-            Assert.IsNotNull(_container.Resolve<IList<object>>());
+            //resolved = _container.Resolve<object>();
+            resolved = _container.Resolve<IList<object>>();
+
+            Assert.IsNotNull(resolved);
         }
 
 

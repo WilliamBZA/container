@@ -3,25 +3,20 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using Unity.Aspects;
+using Unity.Aspect.Build;
+using Unity.Aspect.Select;
 using Unity.Build.Factory;
 using Unity.Build.Pipeleine;
 using Unity.Build.Pipeline;
-using Unity.Build.Selection;
 using Unity.Builder;
-using Unity.Builder.Strategy;
-using Unity.Container;
 using Unity.Container.Lifetime;
+using Unity.Container.Registration;
+using Unity.Container.Storage;
 using Unity.Events;
 using Unity.Extension;
-using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Creation;
-using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Method;
-using Unity.ObjectBuilder.BuildPlan.DynamicMethod.Property;
 using Unity.Policy;
 using Unity.Registration;
 using Unity.Storage;
-using Unity.Strategies;
-using Unity.Strategy;
 
 namespace Unity
 {
@@ -80,10 +75,6 @@ namespace Unity
         // Policies
         private readonly ContainerExtensionContext _extensionContext;
 
-        // Strategies
-        private StagedStrategyChain<BuilderStrategy, UnityBuildStage> _strategies;
-        private StagedStrategyChain<BuilderStrategy, BuilderStage> _buildPlanStrategies;
-
         // Registrations
         private readonly object _syncRoot = new object();
         private HashRegistry<Type, IRegistry<string, IPolicySet>> _registrations;
@@ -94,10 +85,6 @@ namespace Unity
         private event EventHandler<RegisterInstanceEventArgs> RegisteringInstance;
 #pragma warning restore 67
         private event EventHandler<ChildContainerCreatedEventArgs> ChildContainerCreated;
-
-        // Caches
-        internal IStrategyChain _strategyChain;
-        internal BuilderStrategy[] _buildChain;
 
         // Methods
         internal Func<Type, string, bool> IsTypeRegistered;
@@ -131,18 +118,17 @@ namespace Unity
             // Factories
 
             _implicitRegistrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { DynamicRegistrationAspectFactory,
-                                                                                    LifetimeAspect.ImplicitRegistrationLifetimeAspectFactory,
-                                                                                     MappingAspect.ImplicitRegistrationMappingAspectFactory,
+                                                                               BuildLifetimeAspect.ImplicitRegistrationLifetimeAspectFactory,
+                                                                                BuildMappingAspect.ImplicitRegistrationMappingAspectFactory,
                                                                                                    BuildImplicitRegistrationAspectFactory };
 
             _explicitRegistrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { StaticRegistrationAspectFactory,
-                                                                                    LifetimeAspect.ExplicitRegistrationLifetimeAspectFactory,
-                                                                             FactoryDelegateAspect.DelegateAspectFactory,
-                                                                                     MappingAspect.ExplicitRegistrationMappingAspectFactory,
+                                                                               BuildLifetimeAspect.ExplicitRegistrationLifetimeAspectFactory,
+                                                                                BuildMappingAspect.ExplicitRegistrationMappingAspectFactory,
                                                                                                    BuildExplicitRegistrationAspectFactory };
 
             _instanceRegistrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { StaticRegistrationAspectFactory,
-                                                                                    LifetimeAspect.ExplicitRegistrationLifetimeAspectFactory };
+                                                                                    BuildLifetimeAspect.ExplicitRegistrationLifetimeAspectFactory };
 
             _selectConstructorFactories = new List<PipelineFactoryDelegate<SelectConstructorPipeline>>  { SelectAttributedMembers.SelectConstructorPipelineFactory,
                                                                                                          SelectLongestConstructor.SelectConstructorPipelineFactory };
@@ -164,8 +150,6 @@ namespace Unity
 
             // Context and policies
             _extensionContext = new ContainerExtensionContext(this);
-            _strategies = new StagedStrategyChain<BuilderStrategy, UnityBuildStage>();
-            _buildPlanStrategies = new StagedStrategyChain<BuilderStrategy, BuilderStage>();
 
             // Methods
             _getType = Get;
@@ -178,27 +162,6 @@ namespace Unity
             GetPolicyList = Get;
             SetPolicy = Set;
             ClearPolicy = Clear;
-
-            // TODO: Initialize disposables 
-            _lifetimeContainer.Add(_strategies);
-            _lifetimeContainer.Add(_buildPlanStrategies);
-
-            // Main strategy chain
-            _strategies.Add(new ArrayResolveStrategy(typeof(UnityContainer).GetTypeInfo().GetDeclaredMethod(nameof(ResolveArray))), UnityBuildStage.Enumerable);
-            _strategies.Add(new EnumerableResolveStrategy(typeof(UnityContainer).GetTypeInfo().GetDeclaredMethod(nameof(ResolveEnumerable))), UnityBuildStage.Enumerable);
-            _strategies.Add(new BuildKeyMappingStrategy(), UnityBuildStage.TypeMapping);
-            _strategies.Add(new LifetimeStrategy(), UnityBuildStage.Lifetime);
-            _strategies.Add(new BuildPlanStrategy(), UnityBuildStage.Creation);
-
-            // Build plan strategy chain
-            _buildPlanStrategies.Add(new DynamicMethodConstructorStrategy(), BuilderStage.Creation);
-            _buildPlanStrategies.Add(new DynamicMethodPropertySetterStrategy(), BuilderStage.Initialization);
-            _buildPlanStrategies.Add(new DynamicMethodCallStrategy(), BuilderStage.Initialization);
-
-            // Caches
-            _strategyChain = new StrategyChain(_strategies);
-            _buildChain = _strategies.ToArray();
-            _strategies.Invalidated += OnStrategiesChanged;
 
             // Default Policies
             //Set( null, null, GetDefaultPolicies()); 
@@ -235,15 +198,6 @@ namespace Unity
             SetPolicy = CreateAndSetPolicy;
             ClearPolicy = delegate { };
             _getPolicy = _parent._getPolicy;
-
-            // Strategies
-            _strategies = _parent._strategies;
-            _buildPlanStrategies = _parent._buildPlanStrategies;
-            _strategyChain = _parent._strategyChain;
-            _buildChain = _parent._buildChain;
-
-            // Caches
-            _strategies.Invalidated += OnStrategiesChanged;
         }
 
         #endregion
@@ -312,12 +266,6 @@ namespace Unity
         {
 
             return context.Existing;
-        }
-
-        private void OnStrategiesChanged(object sender, EventArgs e)
-        {
-            _strategyChain = new StrategyChain(_strategies);
-            _buildChain = _strategies.ToArray();
         }
 
         private static void InstanceIsAssignable(Type assignmentTargetType, object assignmentInstance, string argumentName)
@@ -523,7 +471,6 @@ namespace Unity
 
             try
             {
-                _strategies.Invalidated -= OnStrategiesChanged;
                 _parent?._lifetimeContainer.Remove(this);
                 _lifetimeContainer.Dispose();
             }

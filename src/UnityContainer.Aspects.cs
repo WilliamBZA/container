@@ -1,11 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Unity.Build.Context;
-using Unity.Build.Factory;
 using Unity.Build.Pipeleine;
 using Unity.Build.Pipeline;
 using Unity.Build.Policy;
+using Unity.Container.Registration;
 using Unity.Lifetime;
 using Unity.Registration;
 using Unity.Storage;
@@ -103,13 +104,22 @@ namespace Unity
         {
             return (ILifetimeContainer container, IPolicySet set, object[] args) =>
             {
+
+                // Build rest of pipeline
+                next?.Invoke(container, set, args);
+                                                                                                                                                                         
+
+                // Check if anyone wants to hijack create process: if resolver exists, no need to do anything
                 var registration = (ExplicitRegistration) set;
-                var buildType = registration.MappedToType ?? registration.Type;
-                var buildTypeInfo = buildType.GetTypeInfo();
-                if (null == buildType)
+                if (null != registration.ResolveMethod)
                 {
+                    registration.EnableOptimization = false;
+                    return;
                 }
-                else if (buildTypeInfo.IsGenericTypeDefinition)
+
+                // Analise the type and select build strategy
+                var buildTypeInfo = registration.MappedToType.GetTypeInfo();
+                if (buildTypeInfo.IsGenericTypeDefinition)
                 {
                     // Create generic type factory
                     InjectionConstructor ctor = null;
@@ -142,27 +152,30 @@ namespace Unity
                         // Create composite resolver
                         return (ref ResolutionContext context) =>
                         {
-                            context.Existing = objectResolver(ref context);
-                            foreach (var resolveMethod in memberResolvers) resolveMethod(ref context); // TODO: Could be executed in parallel
+                            try
+                            {
+                                context.Existing = objectResolver(ref context);
+                                foreach (var resolveMethod in memberResolvers) resolveMethod(ref context); // TODO: Could be executed in parallel
+                            }
+                            catch (Exception e)
+                            {
+                                throw new InvalidOperationException($"Error creating object of type: {ctor.Constructor.DeclaringType}", e);
+                            }
+
                             return context.Existing;
                         };
                     };
                 }
-#if NET40
-                        else if (buildTypeInfo.IsConstructedGenericType)
-#else
-                else if (buildType.IsConstructedGenericType)
-#endif
-                {
-                }
                 else
                 {
-
+                    var unity = (UnityContainer)container.Container;
+                    var members = registration.OfType<InjectionMember>()
+                                              .Cast<InjectionMember>()
+                                              .Where(m => !(m is InjectionConstructor))
+                                              .Concat(unity._injectionMembersPipeline(unity, registration.MappedToType));
+                    registration.ResolveMethod = CreateResolver(unity, registration, set.Get<InjectionConstructor>() ??
+                        unity._constructorSelectionPipeline(unity, registration.MappedToType), members);
                 }
-
-                // Build rest of pipeline
-                next?.Invoke(container, registration);
-
             };
         }
 
@@ -174,10 +187,8 @@ namespace Unity
                 // Build rest of the pipeline first
                 next?.Invoke(container, set, args);
 
+                // if resolver has been provided, no need to do anything
                 var registration = (ImplicitRegistration)set;
-
-                // Check if anyone wants to hijack create process
-                // If resolver has been provided, no need to do anything
                 if (null != registration.ResolveMethod)
                 {
                     registration.EnableOptimization = false;
@@ -193,31 +204,44 @@ namespace Unity
                 }
                 else
                 {
-//                    // Create activation resolver
-//                    var unity = (UnityContainer)container.Container;
-//                    var ctor = unity._constructorSelectionPipeline(unity, registration.MappedToType);
-
-//                    // Get resolvers for all injection members
-//                    var memberResolvers = unity._injectionMembersPipeline(unity, registration.MappedToType)
-//#if DEBUG
-//                                               .Select(m => m.Resolver ?? throw new InvalidOperationException($"Invalid Injection Member {m}"))
-//#else                                          // Silently ignore null in Release
-//                                               .Where(m => null != m)
-//                                               .Select(m => m.Resolver)
-//#endif
-//                                               .ToArray();  // TODO: This array might not be necessary
-
-//                    // Get object activator
-//                    var objectResolver = ctor.Resolver(registration.MappedToType) ?? throw new InvalidOperationException("Unable to create activator");    // TODO: Add proper error message
-
-//                    registration.ResolveMethod = (ref ResolutionContext context) =>
-//                    {
-//                        context.Existing = objectResolver(ref context);
-//                        foreach (var resolveMethod in memberResolvers) resolveMethod(ref context); // TODO: Could be executed in parallel
-//                        return context.Existing;
-//                    };
+                    var unity = (UnityContainer) container.Container;
+                    registration.ResolveMethod = CreateResolver(unity, registration,
+                        unity._constructorSelectionPipeline(unity, registration.MappedToType),
+                        unity._injectionMembersPipeline(unity, registration.MappedToType));
                 }
             };
+        }
+
+        #endregion
+
+
+        #region Implementation
+
+        private static ResolveMethod CreateResolver(UnityContainer unity, ImplicitRegistration registration, 
+            InjectionConstructor ctor, IEnumerable<InjectionMember> members)
+        {
+            // Get resolvers for all injection members
+            var memberResolvers = members.Select(m => m.Resolver(registration.Type))
+                                         .ToList();
+
+            // Get object activator
+            var objectResolver = ctor.Resolver(registration.MappedToType) ??
+                                 throw new InvalidOperationException("Unable to create activator");    // TODO: Add proper error message
+
+            if (0 == memberResolvers.Count)
+            {
+                return (ref ResolutionContext context) => objectResolver(ref context);
+            }
+            else
+            {
+                var dependencyResolvers = memberResolvers;
+                return (ref ResolutionContext context) =>
+                {
+                    context.Existing = objectResolver(ref context);
+                    foreach (var resolveMethod in dependencyResolvers) resolveMethod(ref context);
+                    return context.Existing;
+                };
+            }
         }
 
         #endregion
