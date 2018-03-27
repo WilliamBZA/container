@@ -5,7 +5,6 @@ using System.Linq;
 using System.Reflection;
 using Unity.Aspect.Build;
 using Unity.Aspect.Select;
-using Unity.Build.Factory;
 using Unity.Build.Pipeleine;
 using Unity.Build.Pipeline;
 using Unity.Builder;
@@ -49,12 +48,12 @@ namespace Unity
         ///////////////////////////////////////////////////////////////////////
         // Factories
 
-        private IList<PipelineFactoryDelegate<RegisterPipeline>> _implicitRegistrationFactories;
-        private IList<PipelineFactoryDelegate<RegisterPipeline>> _explicitRegistrationFactories;
-        private IList<PipelineFactoryDelegate<RegisterPipeline>> _instanceRegistrationFactories;
+        private IList<PipelineFactory<RegisterPipeline,RegisterPipeline>> _implicitRegistrationFactories;
+        private IList<PipelineFactory<RegisterPipeline,RegisterPipeline>> _explicitRegistrationFactories;
+        private IList<PipelineFactory<RegisterPipeline,RegisterPipeline>> _instanceRegistrationFactories;
 
-        private IList<PipelineFactoryDelegate<SelectConstructorPipeline>> _selectConstructorFactories;
-        private IList<PipelineFactoryDelegate<InjectionMembersPipeline>> _injectionMembersFactories;
+        private IList<PipelineFactory<SelectConstructorPipeline, SelectConstructorPipeline>> _selectConstructorFactories;
+        private IList<PipelineFactory<InjectionMembersPipeline, InjectionMembersPipeline>> _injectionMembersFactories;
 
         ///////////////////////////////////////////////////////////////////////
         // Pipelines
@@ -117,24 +116,24 @@ namespace Unity
             ///////////////////////////////////////////////////////////////////////
             // Factories
 
-            _implicitRegistrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { DynamicRegistrationAspectFactory,
-                                                                               BuildLifetimeAspect.ImplicitRegistrationLifetimeAspectFactory,
-                                                                                BuildMappingAspect.ImplicitRegistrationMappingAspectFactory,
-                                                                                                   BuildImplicitRegistrationAspectFactory };
+            _implicitRegistrationFactories = new List<PipelineFactory<RegisterPipeline, RegisterPipeline>> { DynamicRegistrationAspectFactory,
+                                                                                         BuildLifetimeAspect.ImplicitRegistrationLifetimeAspectFactory,
+                                                                                          BuildMappingAspect.ImplicitRegistrationMappingAspectFactory,
+                                                                                                             BuildImplicitRegistrationAspectFactory };
 
-            _explicitRegistrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { StaticRegistrationAspectFactory,
-                                                                               BuildLifetimeAspect.ExplicitRegistrationLifetimeAspectFactory,
-                                                                                BuildMappingAspect.ExplicitRegistrationMappingAspectFactory,
-                                                                                                   BuildExplicitRegistrationAspectFactory };
+            _explicitRegistrationFactories = new List<PipelineFactory<RegisterPipeline,RegisterPipeline>> { StaticRegistrationAspectFactory,
+                                                                                        BuildLifetimeAspect.ExplicitRegistrationLifetimeAspectFactory,
+                                                                                         BuildMappingAspect.ExplicitRegistrationMappingAspectFactory,
+                                                                                                            BuildExplicitRegistrationAspectFactory };
 
-            _instanceRegistrationFactories = new List<PipelineFactoryDelegate<RegisterPipeline>> { StaticRegistrationAspectFactory,
+            _instanceRegistrationFactories = new List<PipelineFactory<RegisterPipeline,RegisterPipeline>> { StaticRegistrationAspectFactory,
                                                                                     BuildLifetimeAspect.ExplicitRegistrationLifetimeAspectFactory };
 
-            _selectConstructorFactories = new List<PipelineFactoryDelegate<SelectConstructorPipeline>>  { SelectAttributedMembers.SelectConstructorPipelineFactory,
-                                                                                                         SelectLongestConstructor.SelectConstructorPipelineFactory };
+            _selectConstructorFactories = new List<PipelineFactory<SelectConstructorPipeline,SelectConstructorPipeline>>  { SelectAttributedMembers.SelectConstructorPipelineFactory,
+                                                                                                                           SelectLongestConstructor.SelectConstructorPipelineFactory };
 
-            _injectionMembersFactories    = new List<PipelineFactoryDelegate<InjectionMembersPipeline>> { SelectAttributedMembers.SelectPropertiesPipelineFactory,
-                                                                                                          SelectAttributedMembers.SelectMethodsPipelineFactory };
+            _injectionMembersFactories    = new List<PipelineFactory<InjectionMembersPipeline,InjectionMembersPipeline>> { SelectAttributedMembers.SelectPropertiesPipelineFactory,
+                                                                                                                           SelectAttributedMembers.SelectMethodsPipelineFactory };
 
             ///////////////////////////////////////////////////////////////////////
             // Pipelines
