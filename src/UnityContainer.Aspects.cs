@@ -17,7 +17,7 @@ namespace Unity
     {
         #region Registration Aspects
 
-        private static RegisterPipeline StaticRegistrationAspectFactory(RegisterPipeline next)
+        private static RegisterPipeline ExplicitRegistrationAspectFactory(RegisterPipeline next)
         {
             // Setup and add registration to container
             return (ILifetimeContainer container, IPolicySet set, object[] args) =>

@@ -7,6 +7,7 @@ using Unity.Aspect.Build;
 using Unity.Aspect.Select;
 using Unity.Build.Pipeleine;
 using Unity.Build.Pipeline;
+using Unity.Build.Stage;
 using Unity.Builder;
 using Unity.Container.Lifetime;
 using Unity.Container.Registration;
@@ -48,12 +49,12 @@ namespace Unity
         ///////////////////////////////////////////////////////////////////////
         // Factories
 
-        private IList<PipelineFactory<RegisterPipeline,RegisterPipeline>> _implicitRegistrationFactories;
-        private IList<PipelineFactory<RegisterPipeline,RegisterPipeline>> _explicitRegistrationFactories;
-        private IList<PipelineFactory<RegisterPipeline,RegisterPipeline>> _instanceRegistrationFactories;
+        private readonly IStagedFactoryChain<RegisterPipeline, RegisterStage> _implicitRegistrationFactories = new StagedFactoryChain<RegisterPipeline, RegisterStage>();
+        private readonly IStagedFactoryChain<RegisterPipeline, RegisterStage> _explicitRegistrationFactories = new StagedFactoryChain<RegisterPipeline, RegisterStage>();
+        private readonly IStagedFactoryChain<RegisterPipeline, RegisterStage> _instanceRegistrationFactories = new StagedFactoryChain<RegisterPipeline, RegisterStage>();
 
-        private IList<PipelineFactory<SelectConstructorPipeline, SelectConstructorPipeline>> _selectConstructorFactories;
-        private IList<PipelineFactory<InjectionMembersPipeline, InjectionMembersPipeline>> _injectionMembersFactories;
+        private readonly IStagedFactoryChain<SelectConstructorPipeline, SelectMemberStage> _selectConstructorFactories = new StagedFactoryChain<SelectConstructorPipeline, SelectMemberStage>();
+        private readonly IStagedFactoryChain<InjectionMembersPipeline,  SelectMemberStage> _injectionMembersFactories = new StagedFactoryChain<InjectionMembersPipeline, SelectMemberStage>();
 
         ///////////////////////////////////////////////////////////////////////
         // Pipelines
@@ -116,32 +117,28 @@ namespace Unity
             ///////////////////////////////////////////////////////////////////////
             // Factories
 
-            _implicitRegistrationFactories = new List<PipelineFactory<RegisterPipeline, RegisterPipeline>> { DynamicRegistrationAspectFactory,
-                                                                                         BuildLifetimeAspect.ImplicitRegistrationLifetimeAspectFactory,
-                                                                                          BuildMappingAspect.ImplicitRegistrationMappingAspectFactory,
-                                                                                                             BuildImplicitRegistrationAspectFactory };
+            _implicitRegistrationFactories.Add(BuildLifetimeAspect.ImplicitRegistrationLifetimeAspectFactory, RegisterStage.Lifetime);
+            _implicitRegistrationFactories.Add( BuildMappingAspect.ImplicitRegistrationMappingAspectFactory,  RegisterStage.TypeMapping);
+            _implicitRegistrationFactories.Add(                    BuildImplicitRegistrationAspectFactory,    RegisterStage.Creation);
 
-            _explicitRegistrationFactories = new List<PipelineFactory<RegisterPipeline,RegisterPipeline>> { StaticRegistrationAspectFactory,
-                                                                                        BuildLifetimeAspect.ExplicitRegistrationLifetimeAspectFactory,
-                                                                                         BuildMappingAspect.ExplicitRegistrationMappingAspectFactory,
-                                                                                                            BuildExplicitRegistrationAspectFactory };
+            _explicitRegistrationFactories.Add(BuildLifetimeAspect.ExplicitRegistrationLifetimeAspectFactory, RegisterStage.Lifetime);
+            _explicitRegistrationFactories.Add( BuildMappingAspect.ExplicitRegistrationMappingAspectFactory,  RegisterStage.TypeMapping);
+            _explicitRegistrationFactories.Add(                    BuildExplicitRegistrationAspectFactory,    RegisterStage.Creation);
 
-            _instanceRegistrationFactories = new List<PipelineFactory<RegisterPipeline,RegisterPipeline>> { StaticRegistrationAspectFactory,
-                                                                                    BuildLifetimeAspect.ExplicitRegistrationLifetimeAspectFactory };
+            _instanceRegistrationFactories.Add(BuildLifetimeAspect.ExplicitRegistrationLifetimeAspectFactory, RegisterStage.Lifetime);
 
-            _selectConstructorFactories = new List<PipelineFactory<SelectConstructorPipeline,SelectConstructorPipeline>>  { SelectAttributedMembers.SelectConstructorPipelineFactory,
-                                                                                                                           SelectLongestConstructor.SelectConstructorPipelineFactory };
+            _selectConstructorFactories.Add( SelectAttributedMembers.SelectConstructorPipelineFactory, SelectMemberStage.Attrubute);
+            _selectConstructorFactories.Add(SelectLongestConstructor.SelectConstructorPipelineFactory, SelectMemberStage.Reflection);
 
-            _injectionMembersFactories    = new List<PipelineFactory<InjectionMembersPipeline,InjectionMembersPipeline>> { SelectAttributedMembers.SelectPropertiesPipelineFactory,
-                                                                                                                           SelectAttributedMembers.SelectMethodsPipelineFactory };
+            _injectionMembersFactories.Add(SelectAttributedMembers.SelectPropertiesPipelineFactory, SelectMemberStage.Attrubute);
+            _injectionMembersFactories.Add(SelectAttributedMembers.SelectMethodsPipelineFactory,    SelectMemberStage.Reflection);
 
             ///////////////////////////////////////////////////////////////////////
             // Pipelines
 
-            _dynamicRegistrationPipeline  = _implicitRegistrationFactories.BuildPipeline();
-            _staticRegistrationPipeline   = _explicitRegistrationFactories.BuildPipeline();
-            _instanceRegistrationPipeline = _instanceRegistrationFactories.BuildPipeline();
-
+            _dynamicRegistrationPipeline  = DynamicRegistrationAspectFactory( _implicitRegistrationFactories.BuildPipeline());
+            _staticRegistrationPipeline   = ExplicitRegistrationAspectFactory(_explicitRegistrationFactories.BuildPipeline());
+            _instanceRegistrationPipeline = ExplicitRegistrationAspectFactory(_instanceRegistrationFactories.BuildPipeline());
             _constructorSelectionPipeline = _selectConstructorFactories.BuildPipeline();
             _injectionMembersPipeline     = _injectionMembersFactories.BuildPipeline();
 
@@ -179,14 +176,27 @@ namespace Unity
         /// will apply its own settings first, and then check the parent for additional ones.</param>
         private UnityContainer(UnityContainer parent)
         {
+            ///////////////////////////////////////////////////////////////////////
             // Child container initialization
+
             _lifetimeContainer = new LifetimeContainer(this);
             _extensionContext = new ContainerExtensionContext(this);
 
+            ///////////////////////////////////////////////////////////////////////
             // Parent
             _parent = parent ?? throw new ArgumentNullException(nameof(parent));
             _parent._lifetimeContainer.Add(this);
             _root = _parent._root;
+
+            ///////////////////////////////////////////////////////////////////////
+            // Pipelines
+
+            _dynamicRegistrationPipeline  = _parent._dynamicRegistrationPipeline;
+            _staticRegistrationPipeline   = _parent._staticRegistrationPipeline;
+            _instanceRegistrationPipeline = _parent._instanceRegistrationPipeline;
+            _constructorSelectionPipeline = _parent._constructorSelectionPipeline;
+            _injectionMembersPipeline     = _parent._injectionMembersPipeline;
+
 
             // Methods
             BuilUpPipeline = _parent.BuilUpPipeline;
@@ -259,41 +269,6 @@ namespace Unity
         {
 
             return context.Existing;
-        }
-
-        private static object NotThrowingBuildUp(IBuilderContext context)
-        {
-
-            return context.Existing;
-        }
-
-        private static void InstanceIsAssignable(Type assignmentTargetType, object assignmentInstance, string argumentName)
-        {
-            if (!(assignmentTargetType ?? throw new ArgumentNullException(nameof(assignmentTargetType)))
-                .GetTypeInfo().IsAssignableFrom((assignmentInstance ?? throw new ArgumentNullException(nameof(assignmentInstance))).GetType().GetTypeInfo()))
-            {
-                throw new ArgumentException(
-                    string.Format(
-                        CultureInfo.CurrentCulture,
-                        Constants.TypesAreNotAssignable,
-                        assignmentTargetType, GetTypeName(assignmentInstance)),
-                    argumentName);
-            }
-        }
-
-        private static string GetTypeName(object assignmentInstance)
-        {
-            string assignmentInstanceType;
-            try
-            {
-                assignmentInstanceType = assignmentInstance.GetType().FullName;
-            }
-            catch (Exception)
-            {
-                assignmentInstanceType = Constants.UnknownType;
-            }
-
-            return assignmentInstanceType;
         }
 
         private static MiniHashSet<ImplicitRegistration> GetNamedRegistrations(UnityContainer container, Type type)
