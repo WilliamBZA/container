@@ -64,7 +64,7 @@ namespace Unity.Abstractions.Tests.Build.Selected
         [DynamicData(nameof(TestMethodInputData))]
         public void Abstractions_Build_Selected_SelectedMethod(int test, Type registerType, Type resolveType, int position)
         {
-            ResolutionContext context = new ResolutionContext { Resolve = (t, n) => _values[t], Existing = Activator.CreateInstance(resolveType) };
+            ResolutionContext context = new ResolutionContext { Resolve = (t, n) => _values[t] };
 
             var methodInfo = registerType.GetTypeInfo().DeclaredMethods.ElementAt(position);
             var selectedMethod = new SelectedMethod(methodInfo);

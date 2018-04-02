@@ -16,7 +16,7 @@ namespace Unity.Container.Tests
             object resolved;
             _container.RegisterType(typeof(IList<>), typeof(List<>), new InjectionConstructor());
 
-            //resolved = _container.Resolve<object>();
+            resolved = _container.Resolve<Service1>();
             resolved = _container.Resolve<IList<object>>();
 
             Assert.IsNotNull(resolved);

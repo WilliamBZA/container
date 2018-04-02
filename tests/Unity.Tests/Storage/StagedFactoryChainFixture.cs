@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Unity.Build.Pipeleine;
+using Unity.Build.Pipeline;
 using Unity.Build.Stage;
 using Unity.Container.Storage;
 using Unity.Lifetime;
@@ -15,7 +15,7 @@ namespace Unity.Container.Tests.Storage
         #region Setup
 
         private string _data;
-        private IStagedFactoryChain<RegisterPipeline, RegisterStage> _chain;
+        private StagedFactoryChain<RegisterPipeline, RegisterStage> _chain;
 
         [TestInitialize]
         public void Setup()
@@ -43,7 +43,7 @@ namespace Unity.Container.Tests.Storage
         [TestMethod]
         public void Container_Storage_StagedFactoryChain_empty()
         {
-            IStagedFactoryChain<RegisterPipeline, RegisterStage> chain = new StagedFactoryChain<RegisterPipeline, RegisterStage>();
+            StagedFactoryChain<RegisterPipeline, RegisterStage> chain = new StagedFactoryChain<RegisterPipeline, RegisterStage>();
             Assert.IsNull(chain.BuildPipeline());
         }
 
@@ -115,7 +115,7 @@ namespace Unity.Container.Tests.Storage
         {
             _data = _data + "1";
 
-            return (ILifetimeContainer container, IPolicySet set, object[] args) =>
+            return (container, set, args) =>
             {
                 _data = _data + "1";
                 next?.Invoke(container, set, args);

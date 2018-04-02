@@ -90,7 +90,7 @@ namespace Unity.Tests
     }
 
     /// <summary>
-    /// classes to check property and constructor injection at the same time. i.e.dependency on same type.
+    /// classes to check property and constructor injection at the same time. i.e.@delegate on same type.
     /// </summary>
     public class TestInjectionProp
     {

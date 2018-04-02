@@ -42,21 +42,6 @@ namespace Unity.Tests.Override
         }
 
         [TestMethod]
-        public void TypeBasedOverrideWithBuildUp()
-        {
-            MySimpleType instance = new MySimpleType();
-            instance.X = 111;
-
-            PropertyOverride overrideParam = new PropertyOverride("X", 222);
-            TypeBasedOverride overrideDecorator = new TypeBasedOverride(typeof(MySimpleType), overrideParam);
-
-            UnityContainer container = new UnityContainer();
-
-            var result = container.BuildUp<MySimpleType>(instance, overrideDecorator);
-            Assert.AreEqual<int>(222, result.X);
-        }
-
-        [TestMethod]
         public void TypeBasedOverrideInjectsDependentTypeProperty()
         {
             ParameterOverride overrideParam = new ParameterOverride("value", 222);

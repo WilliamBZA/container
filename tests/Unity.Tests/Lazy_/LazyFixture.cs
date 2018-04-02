@@ -60,25 +60,6 @@ namespace Unity.Tests.Lazy
         }
 
         [TestMethod]
-        public void BuildupLazyInstance()
-        {
-            IUnityContainer container = new UnityContainer();
-
-            container.RegisterType<Lazy<EmailService>>();
-            var lazyDependency = new Lazy<LazyDependency>();
-            var lazy = container.BuildUp(lazyDependency);
-            var lazyreturned = container.Resolve<Lazy<LazyDependency>>();
-
-            Assert.AreEqual(lazy, lazyDependency);
-            Assert.IsFalse(lazyreturned.IsValueCreated);
-
-            var ld = (LazyDependency)lazyreturned.Value;
-
-            Assert.IsFalse(ld.Service.IsValueCreated);
-            Assert.IsNotNull(ld.Service.Value);
-        }
-
-        [TestMethod]
         public void InjectToNonDefaultConstructorWithLazy()
         {
             IUnityContainer container = new UnityContainer();

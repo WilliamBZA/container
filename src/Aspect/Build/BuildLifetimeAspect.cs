@@ -2,10 +2,10 @@
 using System.Diagnostics;
 using System.Reflection;
 using Unity.Build.Context;
-using Unity.Build.Pipeleine;
 using Unity.Build.Pipeline;
 using Unity.Build.Policy;
 using Unity.Container.Registration;
+using Unity.Exceptions;
 using Unity.Lifetime;
 using Unity.Storage;
 
@@ -70,9 +70,31 @@ namespace Unity.Aspect.Build
 
         private static ResolveMethod CreateLifetimeAspect(ResolveMethod pipeline, LifetimeManager manager)
         {
+            // Instance manager
             if (null == pipeline)
                 return (ref ResolutionContext context) => manager.GetValue(context.LifetimeContainer);
 
+            // Create and recover if required
+            if (manager is IRequiresRecovery recoveryPolicy)
+            {
+                return (ref ResolutionContext context) =>
+                {
+                    try
+                    {
+                        var value = manager.GetValue(context.LifetimeContainer);
+                        if (null != value) return value;
+                        value = pipeline(ref context);
+                        manager.SetValue(value, context.LifetimeContainer);
+                        return value;
+                    }
+                    finally
+                    {
+                        recoveryPolicy.Recover();
+                    }
+                };
+            }
+
+            // Just create and store
             return (ref ResolutionContext context) =>
             {
                 var value = manager.GetValue(context.LifetimeContainer);

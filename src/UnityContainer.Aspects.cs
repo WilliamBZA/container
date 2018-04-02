@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Unity.Build.Context;
-using Unity.Build.Pipeleine;
 using Unity.Build.Pipeline;
 using Unity.Build.Policy;
 using Unity.Container.Registration;
@@ -152,9 +151,11 @@ namespace Unity
                         // Create composite resolver
                         return (ref ResolutionContext context) =>
                         {
+                            object result;
+
                             try
                             {
-                                context.Existing = objectResolver(ref context);
+                                result = objectResolver(ref context);
                                 foreach (var resolveMethod in memberResolvers) resolveMethod(ref context); // TODO: Could be executed in parallel
                             }
                             catch (Exception e)
@@ -162,7 +163,7 @@ namespace Unity
                                 throw new InvalidOperationException($"Error creating object of type: {ctor.Constructor.DeclaringType}", e);
                             }
 
-                            return context.Existing;
+                            return result;
                         };
                     };
                 }
@@ -237,9 +238,9 @@ namespace Unity
                 var dependencyResolvers = memberResolvers;
                 return (ref ResolutionContext context) =>
                 {
-                    context.Existing = objectResolver(ref context);
+                    var resolver = objectResolver(ref context);
                     foreach (var resolveMethod in dependencyResolvers) resolveMethod(ref context);
-                    return context.Existing;
+                    return resolver;
                 };
             }
         }

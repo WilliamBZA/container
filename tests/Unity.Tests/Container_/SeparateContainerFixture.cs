@@ -65,22 +65,6 @@ namespace Unity.Tests.SeparateContainer
         }
 
         [TestMethod]
-        public void Check2PropertyDependencyBuildUpWorks()
-        {
-            UnityContainer uc = new UnityContainer();
-            My2PropertyDependencyClass obj1 = new My2PropertyDependencyClass();
-
-            Assert.IsNotNull(obj1);
-            Assert.IsNull(obj1.MyFirstObj);
-            Assert.IsNull(obj1.MySecondObj);
-            
-            uc.BuildUp(obj1);
-            
-            Assert.IsNotNull(obj1.MyFirstObj);
-            Assert.IsNotNull(obj1.MySecondObj);
-        }
-
-        [TestMethod]
         public void CheckMultipleDependencyNonDependencyInjectionWorks()
         {
             UnityContainer uc = new UnityContainer();

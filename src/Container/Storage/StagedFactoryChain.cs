@@ -6,18 +6,21 @@ using Unity.Storage;
 
 namespace Unity.Container.Storage
 {
-    /// <inheritdoc />
     /// <summary>
     /// Represents a chain of responsibility for builder strategies partitioned by stages.
     /// </summary>
     /// <typeparam name="TStageEnum">The stage enumeration to partition the strategies.</typeparam>
     /// <typeparam name="TPipeline"></typeparam>
-    public class StagedFactoryChain<TPipeline, TStageEnum> : IStagedFactoryChain<TPipeline, TStageEnum>
+    public class StagedFactoryChain<TPipeline, TStageEnum> : IEnumerable<PipelineFactory<TPipeline, TPipeline>>, 
+                                                             IDisposable
     {
         #region Fields
 
+        private readonly int _length;
         private readonly object _lockObject = new object();
-        private readonly IList<PipelineFactory<TPipeline, TPipeline>>[] _stages;
+        private readonly StagedFactoryChain<TPipeline, TStageEnum> _parent;
+
+        private IList<PipelineFactory<TPipeline, TPipeline>>[] _stages;
 
         #endregion
 
@@ -29,11 +32,16 @@ namespace Unity.Container.Storage
         /// </summary>
         public StagedFactoryChain()
         {
-            var values = Enum.GetValues(typeof(TStageEnum));
-            _stages = new IList<PipelineFactory<TPipeline, TPipeline>>[values.Length];
+            _length = Enum.GetValues(typeof(TStageEnum)).Length;
+            Initialize();
+        }
 
-            for (var i = 0; i < values.Length; i++)
-                _stages[i] = new List<PipelineFactory<TPipeline, TPipeline>>();
+        public StagedFactoryChain(StagedFactoryChain<TPipeline, TStageEnum> parent)
+        {
+            _parent = parent ?? throw new ArgumentNullException(nameof(parent));
+            _length = parent._length;
+
+            _parent.Invalidated += OnParentInvalidated;
         }
 
         #endregion
@@ -41,16 +49,14 @@ namespace Unity.Container.Storage
 
         #region IStagedChain
 
-
-        /// <summary>
-        /// Signals that chain has been changed
-        /// </summary>
         public event EventHandler<EventArgs> Invalidated;
 
         public void Add(PipelineFactory<TPipeline, TPipeline> factory, TStageEnum stage)
         {
             lock (_lockObject)
             {
+                if (null == _stages) Initialize();
+
                 _stages[Convert.ToInt32(stage)].Add(factory);
                 Invalidated?.Invoke(this, new EventArgs());
             }
@@ -60,6 +66,8 @@ namespace Unity.Container.Storage
         {
             lock (_lockObject)
             {
+                if (null == _stages) return false;
+
                 foreach (var list in _stages)
                 {
                     if (list.Contains(item))
@@ -81,11 +89,10 @@ namespace Unity.Container.Storage
             {
                 for (var e = _stages.Length - 1; e > -1; --e)
                 {
-                    var list = _stages[e];
-                    for (var i = 0; i < list.Count; i++)
-                    {
-                        method = list[i](method);
-                    }
+                    if (null != _parent)
+                        method = _parent.BuildPipeline(e, method);
+
+                    method = BuildPipeline(e, method);
                 }
             }
 
@@ -114,6 +121,47 @@ namespace Unity.Container.Storage
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        #endregion
+
+
+        #region IDisposable
+
+        public void Dispose()
+        {
+            if (null != _parent) _parent.Invalidated -= OnParentInvalidated;
+        }
+
+        #endregion
+
+
+        #region Implementation
+
+        private TPipeline BuildPipeline(int index, TPipeline method)
+        {
+            lock (_lockObject)
+            {
+                if (null == _stages) return method;
+
+                foreach (var stage in _stages[index])
+                    method = stage(method);
+            }
+
+            return method;
+        }
+
+        private void OnParentInvalidated(object sender, EventArgs e)
+        {
+            Invalidated?.Invoke(this, e);
+        }
+
+        private void Initialize()
+        {
+            _stages = new IList<PipelineFactory<TPipeline, TPipeline>>[_length];
+
+            for (var i = 0; i < _length; i++)
+                _stages[i] = new List<PipelineFactory<TPipeline, TPipeline>>();
         }
 
         #endregion

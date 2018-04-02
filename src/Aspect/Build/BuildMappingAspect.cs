@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 using Unity.Build.Context;
-using Unity.Build.Pipeleine;
+using Unity.Build.Pipeline;
 using Unity.Container.Registration;
 using Unity.Lifetime;
 using Unity.Storage;

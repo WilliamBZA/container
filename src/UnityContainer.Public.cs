@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using Unity.Build.Context;
 using Unity.Build.Pipeline;
 using Unity.Container.Registration;
 using Unity.Events;
@@ -28,7 +27,7 @@ namespace Unity
             {
                 var mappedInfo = mappedTo.GetTypeInfo();
                 var registeredInfo = registeredType.GetTypeInfo();
-                if (!registeredInfo.IsGenericType &&  !mappedInfo.IsGenericType && !registeredInfo.IsAssignableFrom(mappedInfo))
+                if (!registeredInfo.IsGenericType && !mappedInfo.IsGenericType && !registeredInfo.IsAssignableFrom(mappedInfo))
                 {
                     throw new ArgumentException(string.Format(CultureInfo.CurrentCulture,
                         Constants.TypesAreNotAssignable, registeredType, mappedTo), nameof(registeredType));
@@ -84,11 +83,11 @@ namespace Unity
                     continue;
                 }
 
-                return null != _registrations.Entries[i].Value?[name] || 
+                return null != _registrations.Entries[i].Value?[name] ||
                        (_parent?.IsTypeRegistered(type, name) ?? false);
             }
 
-            return _parent?.IsTypeRegistered(type, name) ?? false; 
+            return _parent?.IsTypeRegistered(type, name) ?? false;
         }
 
 
@@ -103,85 +102,43 @@ namespace Unity
             // Verify arguments
             var name = string.IsNullOrEmpty(nameToBuild) ? null : nameToBuild;
 
-
             try
             {
-                Type resolvingType = type ?? throw new ArgumentNullException(nameof(type)); 
-                //VerifyPipeline<Type> Verify = (Type t) => {};
-                var registration = GetRegistration(type, name);
+                var getParentContextMethod = GetContextFactoryMethod();
+                ref var root = ref getParentContextMethod();
 
-
-                ResolutionContext rootContext = new ResolutionContext
+                object ResolveDelegate(Type dependencyType, string dependencyName)
                 {
-                    LifetimeContainer = _lifetimeContainer,
+                    var getNewContextMethod = GetContextFactoryMethod();
 
-                    Registration = registration,
-                    ImplementationType = type,
-                    DeclaringType = null
-                };
+                    // New and parent contexts
+                    ref var context = ref getNewContextMethod();
+                    ref var parent = ref getParentContextMethod();
 
-                object ResolveMethod(Type t, string n)
-                {
-                    // Verify if can resolve this type
-                    //Verify(t);
+                    // Initialize local context
+                    context.Parent = getParentContextMethod;
+                    context.LifetimeContainer = parent.LifetimeContainer;
+                    context.Registration = GetRegistration(dependencyType, dependencyName);
+                    context.Resolve = parent.Resolve;
 
-                    // Cache old values
-                    //VerifyPipeline<Type> parentVerify = Verify;
-                    Type parentResolvingType = resolvingType;
+                    // Setup recursion
+                    getParentContextMethod = getNewContextMethod;
 
-                    try
-                    {
-                        Func<Type, string, Type, object> getMethod = (Type tt, string na, Type i) => _getPolicy(tt, na, i);
-                        ResolutionContext context = new ResolutionContext(getMethod, null)
-                        {
-                            LifetimeContainer = _lifetimeContainer,
-
-                            Registration = GetRegistration(t, n),
-                            ImplementationType = t,
-                            DeclaringType = resolvingType,
-                            Resolve = rootContext.Resolve
-                        };
-
-                        resolvingType = t;
-                        //Verify = (Type vT) => { if (ResolvingType == vT) throw new InvalidOperationException(); };
-
-                        return ((IResolveMethod) context.Registration).ResolveMethod(ref context);
-                    }
-                    finally
-                    {
-                        //Verify = parentVerify;
-                        resolvingType = parentResolvingType;
-                    }
+                    // Resolve
+                    return ((IResolveMethod)context.Registration).ResolveMethod(ref context);
                 }
 
-                rootContext.Resolve = ResolveMethod;
+                root.Registration = GetRegistration(type, name);
+                root.LifetimeContainer = _lifetimeContainer;
+                root.Resolve = ResolveDelegate;
 
-                return registration.ResolveMethod?.Invoke(ref rootContext);
+                return ((ImplicitRegistration)root.Registration).ResolveMethod(ref root);
             }
             catch (Exception ex)
             {
                 throw new ResolutionFailedException(type, name, "// TODO: Bummer!", ex);
             }
         }
-
-        #endregion
-
-
-        #region BuildUp existing object
-
-        /// <inheritdoc />
-        public object BuildUp(Type type, string name, object existing, params ResolverOverride[] resolverOverrides)
-        {
-            throw new NotImplementedException();
-            //// Verify arguments
-            //var targetType = type ?? throw new ArgumentNullException(nameof(type));
-            //if (null != existing) InstanceIsAssignable(targetType, existing, nameof(existing));
-
-            //var context = new BuilderContext(this, GetRegistration(targetType, string.IsNullOrEmpty(name) ? null : name), existing, resolverOverrides);
-
-            //return BuilUpPipeline(context);
-        }
-
 
         #endregion
 
