@@ -6,7 +6,7 @@ using Unity.Storage;
 namespace Unity.Container.Storage
 {
     [DebuggerDisplay("LinkedRegistry:  Count={_count}")]
-    internal class LinkedRegistry : LinkedNode<string, IPolicySet>, 
+    internal class LinkedRegistry : LinkedNode<string, IPolicySet>,
                                     IRegistry<string, IPolicySet>
     {
         #region Fields
@@ -19,18 +19,19 @@ namespace Unity.Container.Storage
 
         #region Constructors
 
-        public LinkedRegistry(string key, IPolicySet value) 
-            : base(key, value)
+        public LinkedRegistry(string key, IPolicySet value)
+            : base(string.Empty, null)
         {
             _count = 1;
+            Next = new LinkedNode<string, IPolicySet>(key, value);
         }
 
-    #endregion
+        #endregion
 
 
-    #region IRegistry
+        #region IRegistry
 
-    public IPolicySet this[string key]
+        public IPolicySet this[string key]
         {
             get
             {
@@ -137,6 +138,7 @@ namespace Unity.Container.Storage
             return null;
         }
 
+        public IPolicySet Default => Value;
 
         #endregion
     }

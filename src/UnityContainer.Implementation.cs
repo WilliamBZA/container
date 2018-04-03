@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Unity.Aspect.Build;
@@ -27,6 +26,7 @@ namespace Unity
 
         private delegate IRegistry<string, IPolicySet> GetTypeDelegate(Type type);
         private delegate object GetPolicyDelegate(Type type, string name, Type requestedType);
+        private delegate IPolicySet RegisterDelegate(ExplicitRegistration registration);
 
         public delegate IPolicySet GetRegistrationDelegate(Type type, string name);
         internal delegate IBuilderPolicy GetPolicyListDelegate(Type type, string name, Type policyInterface, out IPolicyList list);
@@ -60,8 +60,8 @@ namespace Unity
         // Pipelines
 
         // Registration
+        private RegisterPipeline _explicitRegistrationPipeline;
         private RegisterPipeline _dynamicRegistrationPipeline;
-        private RegisterPipeline _staticRegistrationPipeline;
         private RegisterPipeline _instanceRegistrationPipeline;
 
         // Member Selection
@@ -90,13 +90,13 @@ namespace Unity
         internal Func<Type, string, bool> IsTypeRegistered;
         internal Func<Type, string, ImplicitRegistration> GetRegistration;
         internal Func<IBuilderContext, object> BuilUpPipeline;
-        internal Func<INamedType, IPolicySet> Register;
         internal GetPolicyListDelegate GetPolicyList;
         internal SetPolicyDelegate SetPolicy;
         internal ClearPolicyDelegate ClearPolicy;
 
         private GetPolicyDelegate _getPolicy;
         private GetTypeDelegate _getType;
+        private RegisterDelegate _register;
 
         #endregion
 
@@ -112,7 +112,8 @@ namespace Unity
             // Root container
             _root = this;
             _lifetimeContainer = new LifetimeContainer(this);
-            _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(ContainerInitialCapacity);
+            _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(ContainerInitialCapacity)
+                { [null] = null };
 
             ///////////////////////////////////////////////////////////////////////
             // Factories
@@ -149,9 +150,10 @@ namespace Unity
             ///////////////////////////////////////////////////////////////////////
             // Create Pipelines
 
-            _dynamicRegistrationPipeline = DynamicRegistrationAspectFactory( _implicitRegistrationFactories.BuildPipeline());
-            _staticRegistrationPipeline   = ExplicitRegistrationAspectFactory(_explicitRegistrationFactories.BuildPipeline());
-            _instanceRegistrationPipeline = ExplicitRegistrationAspectFactory(_instanceRegistrationFactories.BuildPipeline());
+            _explicitRegistrationPipeline = _explicitRegistrationFactories.BuildPipeline();
+            _instanceRegistrationPipeline = _instanceRegistrationFactories.BuildPipeline();
+            _dynamicRegistrationPipeline  = DynamicRegistrationAspectFactory( _implicitRegistrationFactories.BuildPipeline());
+
             _constructorSelectionPipeline = _selectConstructorFactories.BuildPipeline();
             _injectionMembersPipeline     = _injectionMembersFactories.BuildPipeline();
 
@@ -163,11 +165,11 @@ namespace Unity
             // Methods
             _getType = Get;
             _getPolicy = Get;
+            _register = AddOrUpdate;
 
             BuilUpPipeline = ThrowingBuildUp;
             IsTypeRegistered = (type, name) => null != Get(type, name);
             GetRegistration = GetOrAdd;
-            Register = AddOrUpdate;
             GetPolicyList = Get;
             SetPolicy = Set;
             ClearPolicy = Clear;
@@ -227,21 +229,22 @@ namespace Unity
 
             // TODO: Create on demand
             _dynamicRegistrationPipeline = DynamicRegistrationAspectFactory(_implicitRegistrationFactories.BuildPipeline());
-            _staticRegistrationPipeline   = ExplicitRegistrationAspectFactory(_explicitRegistrationFactories.BuildPipeline());
+            _explicitRegistrationPipeline   = ExplicitRegistrationAspectFactory(_explicitRegistrationFactories.BuildPipeline());
             _instanceRegistrationPipeline = ExplicitRegistrationAspectFactory(_instanceRegistrationFactories.BuildPipeline());
             _constructorSelectionPipeline = _selectConstructorFactories.BuildPipeline();
             _injectionMembersPipeline     = _injectionMembersFactories.BuildPipeline();
 
 
             // Methods
+            _getPolicy = _parent._getPolicy;
+            _register  = CreateAndSetOrUpdate;
+
             BuilUpPipeline = _parent.BuilUpPipeline;
             IsTypeRegistered = _parent.IsTypeRegistered;
             GetRegistration = _parent.GetRegistration;
-            Register = CreateAndSetOrUpdate;
             GetPolicyList = parent.GetPolicyList;
             SetPolicy = CreateAndSetPolicy;
             ClearPolicy = delegate { };
-            _getPolicy = _parent._getPolicy;
         }
 
         #endregion
@@ -277,7 +280,7 @@ namespace Unity
             Set(type, name, policyInterface, policy);
         }
 
-        private IPolicySet CreateAndSetOrUpdate(INamedType registration)
+        private IPolicySet CreateAndSetOrUpdate(ExplicitRegistration registration)
         {
             lock (GetRegistration)
             {
@@ -291,62 +294,20 @@ namespace Unity
         private void SetupChildContainerBehaviors()
         {
             _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(ContainerInitialCapacity);
+            _getPolicy = Get;
+            _register = AddOrUpdate;
+
             IsTypeRegistered = IsTypeRegisteredLocally;
             GetRegistration = (type, name) => (ImplicitRegistration)Get(type, name) ?? _parent.GetRegistration(type, name);
-            Register = AddOrUpdate;
             GetPolicyList = Get;
             SetPolicy = Set;
             ClearPolicy = Clear;
-            _getPolicy = Get;
         }
 
         private static object ThrowingBuildUp(IBuilderContext context)
         {
 
             return context.Existing;
-        }
-
-        private static MiniHashSet<ImplicitRegistration> GetNamedRegistrations(UnityContainer container, Type type)
-        {
-            MiniHashSet<ImplicitRegistration> set;
-
-            if (null != container._parent)
-                set = GetNamedRegistrations(container._parent, type);
-            else
-                set = new MiniHashSet<ImplicitRegistration>();
-
-            if (null == container._registrations) return set;
-
-            var registrations = container.Get(type);
-            if (null != registrations && null != registrations.Values)
-            {
-                var registry = registrations.Values;
-                foreach (var entry in registry)
-                {
-                    if (entry is IContainerRegistration registration &&
-                        !string.IsNullOrEmpty(registration.Name))
-                        set.Add((ImplicitRegistration)registration);
-                }
-            }
-
-            var generic = type.GetTypeInfo().IsGenericType ? type.GetGenericTypeDefinition() : type;
-
-            if (generic != type)
-            {
-                registrations = container.Get(generic);
-                if (null != registrations && null != registrations.Values)
-                {
-                    var registry = registrations.Values;
-                    foreach (var entry in registry)
-                    {
-                        if (entry is IContainerRegistration registration &&
-                            !string.IsNullOrEmpty(registration.Name))
-                            set.Add((ImplicitRegistration)registration);
-                    }
-                }
-            }
-
-            return set;
         }
 
         private static MiniHashSet<ImplicitRegistration> GetNotEmptyRegistrations(UnityContainer container, Type type)
@@ -393,8 +354,8 @@ namespace Unity
         private IPolicySet CreateRegistration(Type type, string name)
         {
             var registration = new ImplicitRegistration(type, name);
-
-            _dynamicRegistrationPipeline(_lifetimeContainer, registration);
+            // TODO: Move outside of the lock
+            registration.ResolveMethod = _dynamicRegistrationPipeline(_lifetimeContainer, registration);
 
             return registration;
         }
@@ -402,8 +363,8 @@ namespace Unity
         private IPolicySet CreateRegistration(Type type, string name, Type policyInterface, IBuilderPolicy policy)
         {
             var registration = new ImplicitRegistration(type, name, policyInterface, policy);
-
-            _dynamicRegistrationPipeline(_lifetimeContainer, registration);
+            // TODO: Move outside of the lock
+            registration.ResolveMethod = _dynamicRegistrationPipeline(_lifetimeContainer, registration);
 
             return registration;
         }
@@ -514,7 +475,8 @@ namespace Unity
             {
                 throw exceptions[0];
             }
-            else if (null != exceptions && exceptions.Count > 1)
+
+            if (null != exceptions && exceptions.Count > 1)
             {
                 throw new AggregateException(exceptions);
             }

@@ -1,9 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+using Unity.Build.Context;
+using Unity.Build.Pipeline;
+using Unity.Build.Policy;
 using Unity.Builder;
 using Unity.Container.Registration;
 using Unity.Container.Storage;
+using Unity.Lifetime;
 using Unity.Policy;
 using Unity.Registration;
 using Unity.Storage;
@@ -18,6 +26,93 @@ namespace Unity
         private const int ListToHashCutoverPoint = 8;
 
         #endregion
+
+
+        #region Registration Aspects
+
+        private static RegisterPipeline ExplicitRegistrationAspectFactory(RegisterPipeline next)
+        {
+            // Setup and add registration to container
+            return (ILifetimeContainer lifetimeContainer, IPolicySet set, object[] args) =>
+            {
+                // Add injection members policies to the registration
+                var registration = (ExplicitRegistration)set;
+                if (null != args && 0 < args.Length)
+                {
+                    foreach (var member in args.OfType<InjectionMember>())
+                    {
+                        // Validate against ImplementationType with InjectionFactory
+                        if (member is InjectionFactory && registration.ImplementationType != registration.Type)  // TODO: Add proper error message
+                            throw new InvalidOperationException("Registration where both ImplementationType and InjectionFactory are set is not supported");
+
+                        // Mark as requiring build if any one of the injectors are marked with IRequireBuild
+                        if (member is IRequireBuild) registration.BuildRequired = true;
+
+                        // Add policies
+                        member.AddPolicies(registration.Type, registration.Name, registration.ImplementationType, registration);
+                    }
+                }
+
+                // Add to appropriate storage
+                var unity = registration.LifetimeManager is ISingletonLifetimePolicy
+                          ? ((UnityContainer)lifetimeContainer.Container)._root
+                          : (UnityContainer)lifetimeContainer.Container;
+
+                // Add or replace if exists 
+                var previous = unity._register(registration);
+                if (previous is ExplicitRegistration old && old.LifetimeManager is IDisposable disposableOld)
+                {
+                    // Dispose replaced lifetime manager
+                    unity._lifetimeContainer.Remove(disposableOld);
+                    disposableOld.Dispose();
+                }
+
+                // If Disposable add to container's lifetime
+                if (registration.LifetimeManager is IDisposable)
+                {
+                    unity._lifetimeContainer.Add(registration.LifetimeManager);
+                }
+
+                // Build rest of pipeline
+                return next?.Invoke(lifetimeContainer, registration);
+            };
+        }
+
+        public static RegisterPipeline DynamicRegistrationAspectFactory(RegisterPipeline next)
+        {
+            // Analise registration and generate mappings
+            return (ILifetimeContainer lifetimeContainer, IPolicySet set, object[] args) =>
+            {
+                var registration = (ImplicitRegistration)set;
+                var info = registration.Type.GetTypeInfo();
+
+                // Generic types require implementation
+                if (info.IsGenericType)
+                {
+                    // Find implementation for this type
+                    var unity = (UnityContainer)lifetimeContainer.Container;
+                    var definition = info.GetGenericTypeDefinition();
+                    var registry = unity._getType(definition) ??
+                                   throw new InvalidOperationException("No such type"); // TODO: Add proper error message
+
+                    // This registration must be present to proceed
+                    var target = (null == registration.Name
+                               ? registry[null]
+                               : registry[registration.Name] ?? registry[null])
+                               ?? throw new InvalidOperationException("No such type");    // TODO: Add proper error message
+
+                    // Build rest of pipeline
+                    return next?.Invoke(lifetimeContainer, registration, target);
+                }
+
+                // Build rest of pipeline
+                return next?.Invoke(lifetimeContainer, registration);
+            };
+        }
+
+        #endregion
+
+
 
 
         #region Registrations Collection
@@ -42,7 +137,7 @@ namespace Unity
 
         private ISet<Type> GetRegisteredTypes(UnityContainer container)
         {
-            var set = null == container._parent ? new HashSet<Type>() 
+            var set = null == container._parent ? new HashSet<Type>()
                                                 : GetRegisteredTypes(container._parent);
 
             if (null == container._registrations) return set;
@@ -63,57 +158,18 @@ namespace Unity
 
             if (null != container._parent)
                 set = (MiniHashSet<IContainerRegistration>)GetRegisteredType(container._parent, type);
-            else 
+            else
                 set = new MiniHashSet<IContainerRegistration>();
 
             if (null == container._registrations) return set;
 
             var section = container.Get(type)?.Values;
             if (null == section) return set;
-            
+
             foreach (var namedType in section)
             {
                 if (namedType is IContainerRegistration registration)
                     set.Add(registration);
-            }
-
-            return set;
-        }
-
-        private IEnumerable<string> GetRegisteredNames(UnityContainer container, Type type)
-        {
-            ISet<string> set;
-
-            if (null != container._parent)
-                set = (ISet<string>)GetRegisteredNames(container._parent, type);
-            else
-                set = new HashSet<string>();
-
-            if (null == container._registrations) return set;
-
-            var section = container.Get(type)?.Values;
-            if (null != section)
-            {
-                foreach (var namedType in section)
-                {
-                    if (namedType is IContainerRegistration registration)
-                        set.Add(registration.Name);
-                }
-            }
-
-            var generic = type.GetTypeInfo().IsGenericType ? type.GetGenericTypeDefinition() : type;
-
-            if (generic != type)
-            {
-                section = container.Get(generic)?.Values;
-                if (null != section)
-                {
-                    foreach (var namedType in section)
-                    {
-                        if (namedType is IContainerRegistration registration)
-                            set.Add(registration.Name);
-                    }
-                }
             }
 
             return set;
@@ -147,7 +203,29 @@ namespace Unity
 
         #region Registration manipulation
 
-        private ImplicitRegistration AddOrUpdate(INamedType registration)
+        private void StoreRegistration(ExplicitRegistration registration)
+        {
+            // Add to appropriate storage
+            var unity = registration.LifetimeManager is ISingletonLifetimePolicy
+                      ? _root : this;
+
+            // Add or replace if exists 
+            var previous = unity._register(registration);
+            if (previous is ExplicitRegistration old && old.LifetimeManager is IDisposable disposableOld)
+            {
+                // Dispose replaced lifetime manager
+                unity._lifetimeContainer.Remove(disposableOld);
+                disposableOld.Dispose();
+            }
+
+            // If Disposable add to container's lifetime
+            if (registration.LifetimeManager is IDisposable)
+            {
+                unity._lifetimeContainer.Add(registration.LifetimeManager);
+            }
+        }
+
+        private ImplicitRegistration AddOrUpdate(ExplicitRegistration registration)
         {
             var collisions = 0;
             var hashCode = (registration.Type?.GetHashCode() ?? 0) & 0x7FFFFFFF;
@@ -168,12 +246,14 @@ namespace Unity
                     {
                         existing = existing is HashRegistry<string, IPolicySet> registry
                                  ? new HashRegistry<string, IPolicySet>(registry)
-                                 : new HashRegistry<string, IPolicySet>(LinkedRegistry.ListToHashCutoverPoint * 2, (LinkedRegistry)existing);
+                                 : new HashRegistry<string, IPolicySet>(LinkedRegistry.ListToHashCutoverPoint * 2,
+                                                                       (LinkedRegistry)existing)
+                                 { [string.Empty] = null };
 
                         _registrations.Entries[i].Value = existing;
                     }
 
-                    return (ImplicitRegistration)existing.SetOrReplace(registration.Name, (IPolicySet)registration);
+                    return (ImplicitRegistration)existing.SetOrReplace(registration.Name, registration);
                 }
 
                 if (_registrations.RequireToGrow || ListToHashCutoverPoint < collisions)
@@ -208,7 +288,7 @@ namespace Unity
                 }
 
                 var policy = _registrations.Entries[i].Value?[name];
-                if (null != policy) return (ImplicitRegistration)policy; 
+                if (null != policy) return (ImplicitRegistration)policy;
             }
 
             lock (_syncRoot)
@@ -228,7 +308,8 @@ namespace Unity
                         existing = existing is HashRegistry<string, IPolicySet> registry
                                  ? new HashRegistry<string, IPolicySet>(registry)
                                  : new HashRegistry<string, IPolicySet>(LinkedRegistry.ListToHashCutoverPoint * 2,
-                                                                                       (LinkedRegistry)existing);
+                                                                       (LinkedRegistry)existing)
+                                 { [string.Empty] = null };
 
                         _registrations.Entries[i].Value = existing;
                     }
@@ -293,7 +374,8 @@ namespace Unity
                         existing = existing is HashRegistry<string, IPolicySet> registry
                             ? new HashRegistry<string, IPolicySet>(registry)
                             : new HashRegistry<string, IPolicySet>(LinkedRegistry.ListToHashCutoverPoint * 2,
-                                (LinkedRegistry)existing);
+                                                                  (LinkedRegistry)existing)
+                            { [string.Empty] = null };
 
                         _registrations.Entries[i].Value = existing;
                     }
@@ -397,7 +479,8 @@ namespace Unity
                         existing = existing is HashRegistry<string, IPolicySet> registry
                                  ? new HashRegistry<string, IPolicySet>(registry)
                                  : new HashRegistry<string, IPolicySet>(LinkedRegistry.ListToHashCutoverPoint * 2,
-                                                                                       (LinkedRegistry)existing);
+                                                                       (LinkedRegistry)existing)
+                                 { [string.Empty] = null };
 
                         _registrations.Entries[i].Value = existing;
                     }

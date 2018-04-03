@@ -17,5 +17,7 @@ namespace Unity.Container.Storage
         TValue GetOrAdd(TKey key, Func<TValue> factory);
 
         TValue SetOrReplace(TKey key, TValue value);
+
+        TValue Default { get; }
     }
 }

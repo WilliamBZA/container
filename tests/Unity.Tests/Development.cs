@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Unity.Registration;
 using Unity.Tests.TestObjects;
 
 namespace Unity.Container.Tests
@@ -14,8 +13,9 @@ namespace Unity.Container.Tests
         public void Development_CurrentTest()
         {
             object resolved;
-            _container.RegisterType(typeof(IList<>), typeof(List<>), new InjectionConstructor());
+//            _container.RegisterType(typeof(IList<>), typeof(List<>), new InjectionConstructor());
 
+            resolved = _container.Resolve<object>();
             resolved = _container.Resolve<Service1>();
             resolved = _container.Resolve<IList<object>>();
 

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Unity.Build.Pipeline;
+using Unity.Build.Policy;
 using Unity.Container.Registration;
 using Unity.Events;
 using Unity.Exceptions;
@@ -14,7 +15,7 @@ using Unity.Resolution;
 
 namespace Unity
 {
-    public partial class UnityContainer : IUnityContainer
+    public partial class UnityContainer
     {
         #region Type Registration
 
@@ -35,9 +36,30 @@ namespace Unity
             }
 
             // Register type
+            var registration = new ExplicitRegistration(registeredType, name, mappedTo, lifetimeManager);
 
-            // ReSharper disable once CoVariantArrayConversion
-            _staticRegistrationPipeline(_lifetimeContainer, new ExplicitRegistration(registeredType, name, mappedTo, lifetimeManager), injectionMembers);
+            // Add injection members policies to the registration
+            if (null != injectionMembers && 0 < injectionMembers.Length)
+            {
+                foreach (var member in injectionMembers)
+                {
+                    // Validate against ImplementationType with InjectionFactory
+                    if (member is InjectionFactory && registration.ImplementationType != registration.Type)  // TODO: Add proper error message
+                        throw new InvalidOperationException("Registration where both ImplementationType and InjectionFactory are set is not supported");
+
+                    // Mark as requiring build if any one of the injectors are marked with IRequireBuild
+                    if (member is IRequireBuild) registration.BuildRequired = true;
+
+                    // Add policies
+                    member.AddPolicies(registration.Type, registration.Name, registration.ImplementationType, registration);
+                }
+            }
+
+            // Build resolve pipeline
+            registration.ResolveMethod = _explicitRegistrationPipeline(_lifetimeContainer, registration);
+
+            // Add to appropriate storage
+            StoreRegistration(registration);
 
             return this;
         }
@@ -58,7 +80,8 @@ namespace Unity
             lifetime.SetValue(instance);
 
             // Register instance
-            _instanceRegistrationPipeline(_lifetimeContainer, new ExplicitRegistration(type, name, type, lifetime));
+            var registration = new ExplicitRegistration(type, name, type, lifetime);
+            registration.ResolveMethod = _instanceRegistrationPipeline(_lifetimeContainer, registration);
 
             return this;
         }

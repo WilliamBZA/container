@@ -18,20 +18,19 @@ namespace Unity.Aspect.Build
         public static RegisterPipeline ExplicitRegistrationLifetimeAspectFactory(RegisterPipeline next)
         {
             // Create Lifetime registration aspect
-            return (ILifetimeContainer container, IPolicySet set, object[] args) =>
+            return (ILifetimeContainer lifetimeContainer, IPolicySet set, object[] args) =>
             {
                 // Build rest of pipeline first
-                next?.Invoke(container, set, args);
+                var pipeline = next?.Invoke(lifetimeContainer, set, args);
 
                 // Create aspect
-                var registration = (ExplicitRegistration) set;
+                var registration = (ExplicitRegistration)set;
                 if (registration.LifetimeManager is IRequireBuild) registration.BuildRequired = true;
 
                 // No lifetime management if Transient
-                if (registration.LifetimeManager is TransientLifetimeManager) return;
-
-                // Add aspect
-                registration.ResolveMethod = CreateLifetimeAspect(registration.ResolveMethod, registration.LifetimeManager);
+                return registration.LifetimeManager is TransientLifetimeManager 
+                    ? pipeline 
+                    : CreateLifetimeAspect(pipeline, registration.LifetimeManager);
             };
         }
 
@@ -39,10 +38,10 @@ namespace Unity.Aspect.Build
         public static RegisterPipeline ImplicitRegistrationLifetimeAspectFactory(RegisterPipeline next)
         {
             // Create Lifetime registration aspect
-            return (ILifetimeContainer container, IPolicySet set, object[] args) =>
+            return (ILifetimeContainer lifetimeContainer, IPolicySet set, object[] args) =>
             {
                 // Build rest of the pipeline first
-                next?.Invoke(container, set, args);
+                var pipeline = next?.Invoke(lifetimeContainer, set, args);
 
                 var registration = (ImplicitRegistration)set;
 
@@ -55,15 +54,17 @@ namespace Unity.Aspect.Build
 
                     var genericRegistration = (ExplicitRegistration)args[0];
                     if (!(genericRegistration.LifetimeManager is ILifetimeFactoryPolicy factoryPolicy) ||
-                          genericRegistration.LifetimeManager is TransientLifetimeManager) return;
+                          genericRegistration.LifetimeManager is TransientLifetimeManager) return pipeline;
 
                     var manager = (LifetimeManager)factoryPolicy.CreateLifetimePolicy();
-                    if (manager is IDisposable) container.Add(manager);
+                    if (manager is IDisposable) lifetimeContainer.Add(manager);
                     if (manager is IRequireBuild) registration.BuildRequired = true;
 
                     // Add aspect
-                    registration.ResolveMethod = CreateLifetimeAspect(registration.ResolveMethod, manager);
+                    return CreateLifetimeAspect(pipeline, manager);
                 }
+
+                return pipeline;
             };
         }
 

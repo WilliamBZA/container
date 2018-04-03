@@ -183,6 +183,8 @@ namespace Unity.Container.Storage
             return default(TValue);
         }
 
+        public TValue Default => Entries[0].Value;
+
         #endregion
 
 

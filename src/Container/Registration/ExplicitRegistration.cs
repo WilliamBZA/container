@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq.Expressions;
 using Unity.Build.Pipeline;
@@ -10,10 +8,10 @@ using Unity.Registration;
 
 namespace Unity.Container.Registration
 {
-    [DebuggerDisplay("ExplicitRegistration: Type={Type?.Name},  Name={Name},  MappedTo={Type == MappedToType ? string.Empty : MappedToType?.Name ?? string.Empty},  {LifetimeManager?.GetType()?.Name}")]
+    [DebuggerDisplay("ExplicitRegistration: Type={Type?.Name},  Name={Name},  MappedTo={Type == ImplementationType ? string.Empty : ImplementationType?.Name ?? string.Empty},  {LifetimeManager?.GetType()?.Name}")]
     public class ExplicitRegistration : ImplicitRegistration, 
                                         IContainerRegistration,
-                                        IResolve<Type>
+                                        IPipelineFactory<Type>
     {
         #region Constructors
 
@@ -25,7 +23,7 @@ namespace Unity.Container.Registration
             : base(registeredType, name)
         {
             LifetimeManager = lifetimeManager ?? TransientLifetimeManager.Instance;
-            if (null != mappedTo) MappedToType = mappedTo;
+            if (null != mappedTo) ImplementationType = mappedTo;
         }
 
         #endregion
@@ -33,9 +31,9 @@ namespace Unity.Container.Registration
 
         #region Public Members
 
-        public PipelineFactory<Type, ResolveMethod> Resolver { get; set; }
+        public PipelineFactory<Type, ResolveMethod> CreateActivator { get; set; }
 
-        public PipelineFactory<Type, Expression> Expression => throw new NotImplementedException();
+        public PipelineFactory<Type, Expression> CreateExpression => throw new NotImplementedException();
 
         #endregion
 
@@ -44,7 +42,7 @@ namespace Unity.Container.Registration
 
         Type IContainerRegistration.RegisteredType => Type;
 
-        Type IContainerRegistration.MappedToType => MappedToType;
+        Type IContainerRegistration.MappedToType => ImplementationType;
 
         public LifetimeManager LifetimeManager { get; }
 

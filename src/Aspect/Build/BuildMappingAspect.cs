@@ -14,21 +14,15 @@ namespace Unity.Aspect.Build
 
         public static RegisterPipeline ExplicitRegistrationMappingAspectFactory(RegisterPipeline next)
         {
+
             // Bypassed
             return next;
-
-            //// Analise registration and generate mappings
-            //return (ILifetimeContainer container, IPolicySet set, object[] args) =>
-            //{
-            //    // Build rest of pipeline, no mapping required
-            //    next?.Invoke(container, set, args);
-            //};
         }
 
         public static RegisterPipeline ImplicitRegistrationMappingAspectFactory(RegisterPipeline next)
         {
             // Analise registration and generate mappings
-            return (ILifetimeContainer container, IPolicySet set, object[] args) =>
+            return (ILifetimeContainer lifetimeContainer, IPolicySet set, object[] args) =>
             {
                 var registration = (ImplicitRegistration)set;
                 var info = registration.Type.GetTypeInfo();
@@ -37,18 +31,19 @@ namespace Unity.Aspect.Build
                 if (info.IsGenericType)
                 {
                     var genericRegistration = (ExplicitRegistration)args[0];
-                    registration.MappedToType = genericRegistration.MappedToType
-                                                                   .MakeGenericType(info.GenericTypeArguments);
+                    registration.ImplementationType = genericRegistration.ImplementationType
+                                                                         .MakeGenericType(info.GenericTypeArguments);
                 }
                 else if (!registration.BuildRequired && 
-                         container.Container.IsRegistered(registration.MappedToType, registration.Name))
+                         lifetimeContainer.Container.IsRegistered(registration.ImplementationType, 
+                                                                  registration.Name))
                 {
-                    registration.ResolveMethod = (ref ResolutionContext context) => 
-                        context.Resolve(registration.MappedToType, registration.Name);
+                    return (ref ResolutionContext context) => context.Resolve(registration.ImplementationType, 
+                                                                              registration.Name);
                 }
 
-                // Build rest of pipeline, no mapping required
-                next?.Invoke(container, set, args);
+                // Build rest of pipeline 
+                return next?.Invoke(lifetimeContainer, set, args);
             };
         }
 

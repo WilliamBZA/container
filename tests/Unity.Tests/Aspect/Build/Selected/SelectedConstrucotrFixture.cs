@@ -6,7 +6,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Unity.Build.Context;
 using Unity.Build.Selected;
 
-namespace Unity.Abstractions.Tests.Build.Selected
+namespace Unity.Container.Tests.Aspect.Build.Selected
 {
     [TestClass]
     public class SelectedConstrucotrFixture

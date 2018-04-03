@@ -118,8 +118,9 @@ namespace Unity.Container.Tests.Storage
             return (container, set, args) =>
             {
                 _data = _data + "1";
-                next?.Invoke(container, set, args);
+                return next?.Invoke(container, set, args);
             };
+
         }
 
         public RegisterPipeline TestAspectFactory2(RegisterPipeline next)
@@ -129,7 +130,7 @@ namespace Unity.Container.Tests.Storage
             return (ILifetimeContainer container, IPolicySet set, object[] args) =>
             {
                 _data = _data + "2";
-                next?.Invoke(container, set, args);
+                return next?.Invoke(container, set, args);
             };
         }
 
@@ -140,7 +141,7 @@ namespace Unity.Container.Tests.Storage
             return (ILifetimeContainer container, IPolicySet set, object[] args) =>
             {
                 _data = _data + "3";
-                next?.Invoke(container, set, args);
+                return next?.Invoke(container, set, args);
             };
         }
 
@@ -150,7 +151,7 @@ namespace Unity.Container.Tests.Storage
             return (ILifetimeContainer container, IPolicySet set, object[] args) =>
             {
                 _data = _data + "4";
-                next?.Invoke(container, set, args);
+                return next?.Invoke(container, set, args);
             };
         }
 
@@ -161,7 +162,7 @@ namespace Unity.Container.Tests.Storage
             return (ILifetimeContainer container, IPolicySet set, object[] args) =>
             {
                 _data = _data + "5";
-                next?.Invoke(container, set, args);
+                return next?.Invoke(container, set, args);
             };
         }
 
@@ -172,7 +173,7 @@ namespace Unity.Container.Tests.Storage
             return (ILifetimeContainer container, IPolicySet set, object[] args) =>
             {
                 _data = _data + "6";
-                next?.Invoke(container, set, args);
+                return next?.Invoke(container, set, args);
             };
         }
 
@@ -183,7 +184,7 @@ namespace Unity.Container.Tests.Storage
             return (ILifetimeContainer container, IPolicySet set, object[] args) =>
             {
                 _data = _data + "7";
-                next?.Invoke(container, set, args);
+                return next?.Invoke(container, set, args);
             };
         }
 
@@ -193,7 +194,7 @@ namespace Unity.Container.Tests.Storage
             return (ILifetimeContainer container, IPolicySet set, object[] args) =>
             {
                 _data = _data + "8";
-                next?.Invoke(container, set, args);
+                return next?.Invoke(container, set, args);
             };
         }
 

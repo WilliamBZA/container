@@ -9,7 +9,7 @@ using Unity.Storage;
 
 namespace Unity.Container.Registration
 {
-    [DebuggerDisplay("ImplicitRegistration:  Type={Type?.Name},    Name={Name},  MappedTo={Type == MappedToType ? \"Same as Type\" : MappedToType?.Name ?? string.Empty}")]
+    [DebuggerDisplay("ImplicitRegistration:  Type={Type?.Name},    Name={Name},  MappedTo={Type == ImplementationType ? \"Same as Type\" : ImplementationType?.Name ?? string.Empty}")]
     public class ImplicitRegistration : IPolicySet,
                                         INamedType,
                                         IResolveMethod
@@ -29,7 +29,7 @@ namespace Unity.Container.Registration
         {
             Name = name;
             Type = type;
-            MappedToType = type;
+            ImplementationType = type;
 
             _hash = (Type?.GetHashCode() ?? 0 + 37) ^ (Name?.GetHashCode() ?? 0 + 17);
         }
@@ -49,7 +49,7 @@ namespace Unity.Container.Registration
 
         public bool EnableOptimization = true;
 
-        public Type MappedToType { get; set; }
+        public Type ImplementationType { get; set; }
 
         public ResolveMethod ResolveMethod { get; set; }
 
