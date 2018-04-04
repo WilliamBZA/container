@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using Unity.Aspect.Build;
@@ -19,7 +20,9 @@ using Unity.Storage;
 
 namespace Unity
 {
-    [CLSCompliant(true)]
+    #if DEBUG
+    [DebuggerDisplay("Unity: {Id}  Registrations: {System.Linq.Enumerable.Count(Registrations)}")]
+    #endif
     public partial class UnityContainer
     {
         #region Delegates
@@ -39,6 +42,10 @@ namespace Unity
 
 
         #region Fields
+      
+#if DEBUG
+        public readonly string Id;
+#endif
 
         // Container specific
         private readonly UnityContainer _root;
@@ -108,6 +115,9 @@ namespace Unity
         /// </summary>
         public UnityContainer()
         {
+            #if DEBUG
+            Id = "Root";
+            #endif
             ///////////////////////////////////////////////////////////////////////
             // Root container
             _root = this;
@@ -191,6 +201,9 @@ namespace Unity
         /// will apply its own settings first, and then check the parent for additional ones.</param>
         private UnityContainer(UnityContainer parent)
         {
+            #if DEBUG
+            Id = $"{parent.Id}-{Guid.NewGuid().ToString()}";
+            #endif
             ///////////////////////////////////////////////////////////////////////
             // Child container initialization
 
@@ -228,11 +241,11 @@ namespace Unity
             // Create Pipelines
 
             // TODO: Create on demand
-            _dynamicRegistrationPipeline = DynamicRegistrationAspectFactory(_implicitRegistrationFactories.BuildPipeline());
-            _explicitRegistrationPipeline   = ExplicitRegistrationAspectFactory(_explicitRegistrationFactories.BuildPipeline());
-            _instanceRegistrationPipeline = ExplicitRegistrationAspectFactory(_instanceRegistrationFactories.BuildPipeline());
-            _constructorSelectionPipeline = _selectConstructorFactories.BuildPipeline();
-            _injectionMembersPipeline     = _injectionMembersFactories.BuildPipeline();
+            _dynamicRegistrationPipeline  = _parent._dynamicRegistrationPipeline;
+            _explicitRegistrationPipeline = _parent._explicitRegistrationPipeline;
+            _instanceRegistrationPipeline = _parent._instanceRegistrationPipeline;
+            _constructorSelectionPipeline = _parent._constructorSelectionPipeline;
+            _injectionMembersPipeline     = _parent._injectionMembersPipeline;
 
 
             // Methods
@@ -349,76 +362,6 @@ namespace Unity
             }
 
             return set;
-        }
-
-        private IPolicySet CreateRegistration(Type type, string name)
-        {
-            var registration = new ImplicitRegistration(type, name);
-            // TODO: Move outside of the lock
-            registration.ResolveMethod = _dynamicRegistrationPipeline(_lifetimeContainer, registration);
-
-            return registration;
-        }
-
-        private IPolicySet CreateRegistration(Type type, string name, Type policyInterface, IBuilderPolicy policy)
-        {
-            var registration = new ImplicitRegistration(type, name, policyInterface, policy);
-            // TODO: Move outside of the lock
-            registration.ResolveMethod = _dynamicRegistrationPipeline(_lifetimeContainer, registration);
-
-            return registration;
-        }
-
-        #endregion
-
-
-        #region Nested Types
-
-        private class RegistrationContext : IPolicyList
-        {
-            private readonly ImplicitRegistration _registration;
-            private readonly UnityContainer _container;
-
-            internal RegistrationContext(UnityContainer container, ImplicitRegistration registration)
-            {
-                _registration = registration;
-                _container = container;
-            }
-
-
-            #region IPolicyList
-
-            public IBuilderPolicy Get(Type type, string name, Type policyInterface, out IPolicyList list)
-            {
-                if (_registration.Type != type || _registration.Name != name)
-                    return _container.GetPolicyList(type, name, policyInterface, out list);
-
-                list = this;
-                return (IBuilderPolicy)_registration.Get(policyInterface);
-            }
-
-
-            public void Set(Type type, string name, Type policyInterface, IBuilderPolicy policy)
-            {
-                if (_registration.Type != type || _registration.Name != name)
-                    _container.SetPolicy(type, name, policyInterface, policy);
-                else
-                    _registration.Set(policyInterface, policy);
-            }
-
-            public void Clear(Type type, string name, Type policyInterface)
-            {
-                if (_registration.Type != type || _registration.Name != name)
-                    _container.ClearPolicy(type, name, policyInterface);
-                else
-                    _registration.Clear(policyInterface);
-            }
-
-            public void ClearAll()
-            {
-            }
-
-            #endregion
         }
 
         #endregion

@@ -1,14 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
 using System.Threading;
-using System.Threading.Tasks;
 using Unity.Build.Context;
 using Unity.Build.Pipeline;
-using Unity.Build.Policy;
-using Unity.Builder;
 using Unity.Container.Registration;
 using Unity.Container.Storage;
 using Unity.Lifetime;
@@ -29,54 +24,6 @@ namespace Unity
 
 
         #region Registration Aspects
-
-        private static RegisterPipeline ExplicitRegistrationAspectFactory(RegisterPipeline next)
-        {
-            // Setup and add registration to container
-            return (ILifetimeContainer lifetimeContainer, IPolicySet set, object[] args) =>
-            {
-                // Add injection members policies to the registration
-                var registration = (ExplicitRegistration)set;
-                if (null != args && 0 < args.Length)
-                {
-                    foreach (var member in args.OfType<InjectionMember>())
-                    {
-                        // Validate against ImplementationType with InjectionFactory
-                        if (member is InjectionFactory && registration.ImplementationType != registration.Type)  // TODO: Add proper error message
-                            throw new InvalidOperationException("Registration where both ImplementationType and InjectionFactory are set is not supported");
-
-                        // Mark as requiring build if any one of the injectors are marked with IRequireBuild
-                        if (member is IRequireBuild) registration.BuildRequired = true;
-
-                        // Add policies
-                        member.AddPolicies(registration.Type, registration.Name, registration.ImplementationType, registration);
-                    }
-                }
-
-                // Add to appropriate storage
-                var unity = registration.LifetimeManager is ISingletonLifetimePolicy
-                          ? ((UnityContainer)lifetimeContainer.Container)._root
-                          : (UnityContainer)lifetimeContainer.Container;
-
-                // Add or replace if exists 
-                var previous = unity._register(registration);
-                if (previous is ExplicitRegistration old && old.LifetimeManager is IDisposable disposableOld)
-                {
-                    // Dispose replaced lifetime manager
-                    unity._lifetimeContainer.Remove(disposableOld);
-                    disposableOld.Dispose();
-                }
-
-                // If Disposable add to container's lifetime
-                if (registration.LifetimeManager is IDisposable)
-                {
-                    unity._lifetimeContainer.Add(registration.LifetimeManager);
-                }
-
-                // Build rest of pipeline
-                return next?.Invoke(lifetimeContainer, registration);
-            };
-        }
 
         public static RegisterPipeline DynamicRegistrationAspectFactory(RegisterPipeline next)
         {
@@ -111,8 +58,6 @@ namespace Unity
         }
 
         #endregion
-
-
 
 
         #region Registrations Collection
@@ -265,7 +210,7 @@ namespace Unity
                 _registrations.Entries[_registrations.Count].HashCode = hashCode;
                 _registrations.Entries[_registrations.Count].Next = _registrations.Buckets[targetBucket];
                 _registrations.Entries[_registrations.Count].Key = registration.Type;
-                _registrations.Entries[_registrations.Count].Value = new LinkedRegistry(registration.Name, (IPolicySet)registration);
+                _registrations.Entries[_registrations.Count].Value = new LinkedRegistry(registration.Name, registration);
                 _registrations.Buckets[targetBucket] = _registrations.Count;
                 _registrations.Count++;
 
@@ -291,47 +236,89 @@ namespace Unity
                 if (null != policy) return (ImplicitRegistration)policy;
             }
 
-            lock (_syncRoot)
+            ImplicitRegistration registration = null;
+
+            try
             {
-                for (var i = _registrations.Buckets[targetBucket]; i >= 0; i = _registrations.Entries[i].Next)
+                lock (_syncRoot)
                 {
-                    if (_registrations.Entries[i].HashCode != hashCode ||
-                        _registrations.Entries[i].Key != type)
+                    for (var i = _registrations.Buckets[targetBucket]; i >= 0; i = _registrations.Entries[i].Next)
                     {
-                        collisions++;
-                        continue;
+                        if (_registrations.Entries[i].HashCode != hashCode ||
+                            _registrations.Entries[i].Key != type)
+                        {
+                            collisions++;
+                            continue;
+                        }
+
+                        var existing = _registrations.Entries[i].Value;
+                        if (existing.RequireToGrow)
+                        {
+                            existing = existing is HashRegistry<string, IPolicySet> registry
+                                     ? new HashRegistry<string, IPolicySet>(registry)
+                                     : new HashRegistry<string, IPolicySet>(LinkedRegistry.ListToHashCutoverPoint * 2,
+                                                                           (LinkedRegistry)existing)
+                                     { [string.Empty] = null };
+
+                            _registrations.Entries[i].Value = existing;
+                        }
+
+                        registration = (ImplicitRegistration)existing.GetOrAdd(name, () => CreateRegistration(type, name));
+                        break;
                     }
 
-                    var existing = _registrations.Entries[i].Value;
-                    if (existing.RequireToGrow)
+                    if (null == registration)
                     {
-                        existing = existing is HashRegistry<string, IPolicySet> registry
-                                 ? new HashRegistry<string, IPolicySet>(registry)
-                                 : new HashRegistry<string, IPolicySet>(LinkedRegistry.ListToHashCutoverPoint * 2,
-                                                                       (LinkedRegistry)existing)
-                                 { [string.Empty] = null };
+                        if (_registrations.RequireToGrow || ListToHashCutoverPoint < collisions)
+                        {
+                            _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(_registrations);
+                            targetBucket = hashCode % _registrations.Buckets.Length;
+                        }
 
-                        _registrations.Entries[i].Value = existing;
+                        registration = CreateRegistration(type, name);
+                        _registrations.Entries[_registrations.Count].HashCode = hashCode;
+                        _registrations.Entries[_registrations.Count].Next = _registrations.Buckets[targetBucket];
+                        _registrations.Entries[_registrations.Count].Key = type;
+                        _registrations.Entries[_registrations.Count].Value = new LinkedRegistry(name, registration);
+                        _registrations.Buckets[targetBucket] = _registrations.Count;
+                        _registrations.Count++;
                     }
 
-                    return (ImplicitRegistration)existing.GetOrAdd(name, () => CreateRegistration(type, name));
                 }
 
-                if (_registrations.RequireToGrow || ListToHashCutoverPoint < collisions)
-                {
-                    _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(_registrations);
-                    targetBucket = hashCode % _registrations.Buckets.Length;
-                }
-
-                var registration = CreateRegistration(type, name);
-                _registrations.Entries[_registrations.Count].HashCode = hashCode;
-                _registrations.Entries[_registrations.Count].Next = _registrations.Buckets[targetBucket];
-                _registrations.Entries[_registrations.Count].Key = type;
-                _registrations.Entries[_registrations.Count].Value = new LinkedRegistry(name, registration);
-                _registrations.Buckets[targetBucket] = _registrations.Count;
-                _registrations.Count++;
-                return (ImplicitRegistration)registration;
+                // Build resolve pipeline
+                registration.ResolveMethod = _dynamicRegistrationPipeline(_lifetimeContainer, registration);
             }
+            finally 
+            {
+                // Release lock on the registration
+                Monitor.Exit(registration);
+            }
+
+            return registration;
+        }
+
+        private ImplicitRegistration CreateRegistration(Type type, string name)
+        {
+            // Create registration
+            var registration = new ImplicitRegistration(type, name);
+
+            // Create stub method in case it is requested before pipeline
+            // has been created. It waits for the initialization to complete
+            registration.ResolveMethod = (ref ResolutionContext context) =>
+            {
+                // Once lock is acquired the pipeline has been built
+                lock (Registrations)
+                {
+                    return registration.ResolveMethod(ref context);
+                }
+            };
+
+            // Acquire lock on the registration 
+            // until it is initialized
+            Monitor.Enter(registration);
+
+            return registration;
         }
 
         private IPolicySet Get(Type type, string name)
@@ -350,53 +337,6 @@ namespace Unity
             }
 
             return null;
-        }
-
-        private void Set(Type type, string name, IPolicySet value)
-        {
-            var hashCode = (type?.GetHashCode() ?? 0) & 0x7FFFFFFF;
-            var targetBucket = hashCode % _registrations.Buckets.Length;
-            var collisions = 0;
-            lock (_syncRoot)
-            {
-                for (var i = _registrations.Buckets[targetBucket]; i >= 0; i = _registrations.Entries[i].Next)
-                {
-                    if (_registrations.Entries[i].HashCode != hashCode ||
-                        _registrations.Entries[i].Key != type)
-                    {
-                        collisions++;
-                        continue;
-                    }
-
-                    var existing = _registrations.Entries[i].Value;
-                    if (existing.RequireToGrow)
-                    {
-                        existing = existing is HashRegistry<string, IPolicySet> registry
-                            ? new HashRegistry<string, IPolicySet>(registry)
-                            : new HashRegistry<string, IPolicySet>(LinkedRegistry.ListToHashCutoverPoint * 2,
-                                                                  (LinkedRegistry)existing)
-                            { [string.Empty] = null };
-
-                        _registrations.Entries[i].Value = existing;
-                    }
-
-                    existing[name] = value;
-                    return;
-                }
-
-                if (_registrations.RequireToGrow || ListToHashCutoverPoint < collisions)
-                {
-                    _registrations = new HashRegistry<Type, IRegistry<string, IPolicySet>>(_registrations);
-                    targetBucket = hashCode % _registrations.Buckets.Length;
-                }
-
-                _registrations.Entries[_registrations.Count].HashCode = hashCode;
-                _registrations.Entries[_registrations.Count].Next = _registrations.Buckets[targetBucket];
-                _registrations.Entries[_registrations.Count].Key = type;
-                _registrations.Entries[_registrations.Count].Value = new LinkedRegistry(name, value);
-                _registrations.Buckets[targetBucket] = _registrations.Count;
-                _registrations.Count++;
-            }
         }
 
         #endregion
@@ -450,7 +390,7 @@ namespace Unity
             return _parent?._getPolicy(type, name, requestedType);
         }
 
-        private void Set(Type type, string name, Type policyInterface, IBuilderPolicy policy)
+        private void Set(Type type, string name, Type policyInterface, object policy)
         {
             var collisions = 0;
             var hashCode = (type?.GetHashCode() ?? 0) & 0x7FFFFFFF;
@@ -503,6 +443,28 @@ namespace Unity
                 _registrations.Buckets[targetBucket] = _registrations.Count;
                 _registrations.Count++;
             }
+        }
+
+        private IPolicySet CreateRegistration(Type type, string name, Type policyInterface, object policy)
+        {
+            // Create registration and set provided policy
+            var registration = new ImplicitRegistration(type, name, policyInterface, policy);
+
+            // Create stub method in case registration is ever resolved
+            registration.ResolveMethod = (ref ResolutionContext context) =>
+            {
+                // Once lock is acquired the pipeline has been built
+                lock (Registrations)
+                {
+                    // Build resolve pipeline and replace the stub
+                    registration.ResolveMethod = _dynamicRegistrationPipeline(_lifetimeContainer, registration);
+
+                    // Resolve using built pipeline
+                    return registration.ResolveMethod(ref context);
+                }
+            };
+
+            return registration;
         }
 
         private void Clear(Type type, string name, Type policyInterface)

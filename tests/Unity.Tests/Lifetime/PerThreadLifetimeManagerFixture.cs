@@ -1,18 +1,35 @@
-// Copyright (c) Microsoft Corporation. All rights reserved. See License.txt in the project root for license information.
 using System.Collections.Generic;
 using System.Threading;
-using Microsoft.Practices.Unity;
-using Unity.Tests.Generics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Unity.Lifetime;
+using Unity.Tests.Generics;
 
-namespace Unity.Tests.Lifetime
+namespace Unity.Container.Tests.Lifetime
 {
     [TestClass]
-    public class PerThreadLifeTimeManagerFixture
+    public class PerThreadLifetimeManagerFixture
     {
+        #region Setup
+
+        private static void HelperThreadProcedure(object o)
+        {
+            ThreadInformation info = (ThreadInformation) o;
+
+            IHaveManyGenericTypesClosed resolve1 = info.Container.Resolve<IHaveManyGenericTypesClosed>();
+            IHaveManyGenericTypesClosed resolve2 = info.Container.Resolve<IHaveManyGenericTypesClosed>();
+
+            Assert.AreSame(resolve1, resolve2);
+
+            info.SetThreadResult(Thread.CurrentThread, resolve1);
+        }
+        
+        #endregion
+
+
+        #region Tests
+
         [TestMethod]
-        public void ContainerReturnsTheSameInstanceOnTheSameThread()
+        public void Container_Lifetime_PerThreadLifetimeManager_SameThread()
         {
             IUnityContainer container = new UnityContainer();
 
@@ -25,17 +42,17 @@ namespace Unity.Tests.Lifetime
         }
 
         [TestMethod]
-        public void ContainerReturnsDifferentInstancesOnDifferentThreads()
+        public void Container_Lifetime_PerThreadLifetimeManager_DifferentThreads()
         {
             IUnityContainer container = new UnityContainer();
 
             container.RegisterType<IHaveManyGenericTypesClosed, HaveManyGenericTypesClosed>(new PerThreadLifetimeManager());
 
-            Thread t1 = new Thread(new ParameterizedThreadStart(ContainerReturnsDifferentInstancesOnDifferentThreads_ThreadProcedure));
-            Thread t2 = new Thread(new ParameterizedThreadStart(ContainerReturnsDifferentInstancesOnDifferentThreads_ThreadProcedure));
+            Thread t1 = new Thread(new ParameterizedThreadStart(HelperThreadProcedure));
+            Thread t2 = new Thread(new ParameterizedThreadStart(HelperThreadProcedure));
 
-            ContainerReturnsDifferentInstancesOnDifferentThreads_ThreadInformation info =
-                new ContainerReturnsDifferentInstancesOnDifferentThreads_ThreadInformation(container);
+            ThreadInformation info =
+                new ThreadInformation(container);
 
             t1.Start(info);
             t2.Start(info);
@@ -48,13 +65,18 @@ namespace Unity.Tests.Lifetime
             Assert.AreNotSame(a, b);
         }
 
-        public class ContainerReturnsDifferentInstancesOnDifferentThreads_ThreadInformation
+        #endregion
+
+
+        #region Test Data
+
+        public class ThreadInformation
         {
             private readonly IUnityContainer _container;
             private readonly Dictionary<Thread, IHaveManyGenericTypesClosed> _threadResults;
             private readonly object dictLock = new object();
 
-            public ContainerReturnsDifferentInstancesOnDifferentThreads_ThreadInformation(IUnityContainer container)
+            public ThreadInformation(IUnityContainer container)
             {
                 _container = container;
                 _threadResults = new Dictionary<Thread, IHaveManyGenericTypesClosed>();
@@ -79,16 +101,6 @@ namespace Unity.Tests.Lifetime
             }
         }
 
-        private void ContainerReturnsDifferentInstancesOnDifferentThreads_ThreadProcedure(object o)
-        {
-            ContainerReturnsDifferentInstancesOnDifferentThreads_ThreadInformation info = o as ContainerReturnsDifferentInstancesOnDifferentThreads_ThreadInformation;
-
-            IHaveManyGenericTypesClosed resolve1 = info.Container.Resolve<IHaveManyGenericTypesClosed>();
-            IHaveManyGenericTypesClosed resolve2 = info.Container.Resolve<IHaveManyGenericTypesClosed>();
-
-            Assert.AreSame(resolve1, resolve2);
-
-            info.SetThreadResult(Thread.CurrentThread, resolve1);
-        }
+        #endregion
     }
 }

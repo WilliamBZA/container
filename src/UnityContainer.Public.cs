@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -15,6 +16,7 @@ using Unity.Resolution;
 
 namespace Unity
 {
+    [CLSCompliant(true)]
     public partial class UnityContainer
     {
         #region Type Registration
@@ -75,13 +77,19 @@ namespace Unity
             // Validate input
             if (null == instance) throw new ArgumentNullException(nameof(instance));
 
+            // Add value to Lifetime Manager
             var type = registeredType ?? instance.GetType();
             var lifetime = lifetimeManager ?? new ContainerControlledLifetimeManager();
             lifetime.SetValue(instance);
 
             // Register instance
             var registration = new ExplicitRegistration(type, name, type, lifetime);
+            
+            // Build resolve pipeline
             registration.ResolveMethod = _instanceRegistrationPipeline(_lifetimeContainer, registration);
+
+            // Add to appropriate storage
+            StoreRegistration(registration);
 
             return this;
         }
@@ -127,38 +135,51 @@ namespace Unity
 
             try
             {
+                // Get context factory and create root context
                 var getParentContextMethod = GetContextFactoryMethod();
                 ref var root = ref getParentContextMethod();
 
-                object ResolveDelegate(Type dependencyType, string dependencyName)
-                {
-                    var getNewContextMethod = GetContextFactoryMethod();
-
-                    // New and parent contexts
-                    ref var context = ref getNewContextMethod();
-                    ref var parent = ref getParentContextMethod();
-
-                    // Initialize local context
-                    context.Parent = getParentContextMethod;
-                    context.LifetimeContainer = parent.LifetimeContainer;
-                    context.Registration = GetRegistration(dependencyType, dependencyName);
-                    context.Resolve = parent.Resolve;
-
-                    // Setup recursion
-                    getParentContextMethod = getNewContextMethod;
-
-                    // Resolve
-                    return ((IResolveMethod)context.Registration).ResolveMethod(ref context);
-                }
-
-                root.Registration = GetRegistration(type, name);
+                // Initialize root context
+                root.Registration      = GetRegistration(type, name);
                 root.LifetimeContainer = _lifetimeContainer;
-                root.Resolve = ResolveDelegate;
 
+                root.Resolve = (dependencyType, dependencyName) =>
+                {
+                    try
+                    {
+                        // Get context factory and create recursive context
+                        var getRecursiveContextMethod = GetContextFactoryMethod();
+
+                        // New and parent contexts
+                        ref var context = ref getRecursiveContextMethod();
+                        ref var parent = ref getParentContextMethod();
+
+                        // Initialize recursive context
+                        context.Parent = getParentContextMethod;
+                        context.LifetimeContainer = parent.LifetimeContainer;
+                        context.Registration = GetRegistration(dependencyType, dependencyName);
+                        context.Resolve = parent.Resolve;
+
+                        // Close recursion loop
+                        getParentContextMethod = getRecursiveContextMethod;
+
+                        // Resolve dependency
+                        return ((IResolveMethod)context.Registration).ResolveMethod(ref context);
+                    }
+                    catch (Exception exception)
+                    {
+                        // TODO: Format error message for the dependency
+                        Debug.WriteLine(exception);
+                        throw;
+                    }
+                };
+
+                // Run the resolve
                 return ((ImplicitRegistration)root.Registration).ResolveMethod(ref root);
             }
             catch (Exception ex)
             {
+                // TODO: Format error message for the Resolve
                 throw new ResolutionFailedException(type, name, "// TODO: Bummer!", ex);
             }
         }
@@ -186,6 +207,9 @@ namespace Unity
         /// <inheritdoc />
         public object Configure(Type configurationInterface)
         {
+            if (typeof(UnityContainerConfigurator) == configurationInterface)
+                return new UnityContainerConfigurator(this);
+
             return _extensions?.FirstOrDefault(ex => configurationInterface.GetTypeInfo()
                                                                           .IsAssignableFrom(ex.GetType()
                                                                           .GetTypeInfo()));

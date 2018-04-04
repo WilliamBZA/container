@@ -1,17 +1,69 @@
 ﻿using System;
-using Unity.Builder;
-using Unity.Builder.Strategy;
 using Unity.Events;
 using Unity.Extension;
 using Unity.Lifetime;
 using Unity.Policy;
 using Unity.Storage;
-using Unity.Strategy;
 
 namespace Unity
 {
     public partial class UnityContainer
     {
+        // TODO: Temporary, replace with permanent extension solution
+        public class UnityContainerConfigurator : IUnityContainerExtensionConfigurator
+        {
+            private readonly UnityContainer _container;
+
+            internal UnityContainerConfigurator(UnityContainer container)
+            {
+                _container = container;
+            }
+
+            /// <summary>
+            /// Get IUnityContainer
+            /// </summary>
+            public IUnityContainer Container => _container;
+
+            /// <summary>
+            /// Get registration
+            /// </summary>
+            /// <param name="type">Registered Type</param>
+            /// <param name="name">Registered Name</param>
+            /// <returns>Returns registration</returns>
+            public IPolicySet Get(Type type, string name) 
+                => _container.Get(type, name);
+
+            /// <summary>
+            /// Get registered policy
+            /// </summary>
+            /// <param name="type">Registered Type</param>
+            /// <param name="name">Registered Name</param>
+            /// <param name="requestedType">Type of the policy to return</param>
+            /// <returns>Requested policy or null if nothing found</returns>
+            public object Get(Type type, string name, Type requestedType) 
+                => _container.Get(type, name, requestedType);
+
+            /// <summary>
+            /// Set policy
+            /// </summary>
+            /// <param name="type">Registered Type</param>
+            /// <param name="name">Registered Name</param>
+            /// <param name="policyInterface">Type of the policy</param>
+            /// <param name="policy">The Policy</param>
+            public void Set(Type type, string name, Type policyInterface, object policy) 
+                => _container.Set(type, name, policyInterface, policy);
+
+            /// <summary>
+            /// Clear specific policy
+            /// </summary>
+            /// <param name="type">Registered Type</param>
+            /// <param name="name">Registered Name</param>
+            /// <param name="policyInterface">Type of the policy</param>
+            public void Clear(Type type, string name, Type policyInterface)
+                => _container.Clear(type, name, policyInterface);
+        }
+
+
 
         /// <summary>
         /// Abstraction layer between container and extensions
@@ -20,8 +72,7 @@ namespace Unity
         /// Implemented as a nested class to gain access to  
         /// container that would otherwise be inaccessible.
         /// </remarks>
-        private class ContainerExtensionContext : ExtensionContext,
-                                                  IPolicyList 
+        private class ContainerExtensionContext : ExtensionContext, IPolicyList 
         {
             #region Fields
 

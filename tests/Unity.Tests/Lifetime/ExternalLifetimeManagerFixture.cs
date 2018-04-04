@@ -1,61 +1,22 @@
-// Copyright (c) Microsoft Corporation. All rights reserved. See License.txt in the project root for license information.
-
 using System;
-using Microsoft.Practices.Unity;
-using Microsoft.Practices.Unity.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Unity.Lifetime;
-using Unity.Tests.Container;
-using Unity.Tests.TestObjects;
 
-
-namespace Unity.Tests.Lifetime
+namespace Unity.Container.Tests.Lifetime
 {
+    #region Tests
+
     /// <summary>
     /// Summary description for MyTest
     /// </summary>
     [TestClass]
-    public class LifetimeFixture
+    public class ExternallyControlledLifetimeManagerFixture
     {
-        /// <summary>
-        /// Registering a type twice with SetSingleton method. once with default and second with name.
-        /// </summary>
-        [TestMethod]
-        public void CheckSetSingletonDoneTwice()
-        {
-            IUnityContainer uc = new UnityContainer();
-            
-            uc.RegisterType<A>(new ContainerControlledLifetimeManager())
-                .RegisterType<A>("hello", new ContainerControlledLifetimeManager());
-            A obj = uc.Resolve<A>();
-            A obj1 = uc.Resolve<A>("hello");
-            
-            Assert.AreNotSame(obj, obj1);
-        }
-
-        /// <summary>
-        /// Registering a type twice with SetSingleton method. once with default and second with name.
-        /// </summary>
-        [TestMethod]
-        public void CheckRegisterInstanceDoneTwice()
-        {
-            IUnityContainer uc = new UnityContainer();
-
-            A aInstance = new A();
-            uc.RegisterInstance<A>(aInstance).RegisterInstance<A>("hello", aInstance);
-            A obj = uc.Resolve<A>();
-            A obj1 = uc.Resolve<A>("hello");
-            
-            Assert.AreSame(obj, aInstance);
-            Assert.AreSame(obj1, aInstance);
-            Assert.AreSame(obj, obj1);
-        }
-
         /// <summary>
         /// Registering a type as singleton and handling its lifetime. Using SetLifetime method.
         /// </summary>
         [TestMethod]
-        public void SetLifetimeTwiceWithLifetimeHandle()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_SetLifetimeTwice()
         {
             IUnityContainer uc = new UnityContainer();
             
@@ -68,72 +29,19 @@ namespace Unity.Tests.Lifetime
         }
 
         /// <summary>
-        /// SetSingleton class A. Then register instance of class A twice. once by default second by name.
-        /// </summary>
-        [TestMethod]
-        public void SetSingletonRegisterInstanceTwice()
-        {
-            IUnityContainer uc = new UnityContainer();
-
-            A aInstance = new A();
-            uc.RegisterInstance<A>(aInstance).RegisterInstance<A>("hello", aInstance);
-            A obj = uc.Resolve<A>();
-            A obj1 = uc.Resolve<A>("hello");
-            
-            Assert.AreSame(obj, obj1);
-        }
-
-        /// <summary>
-        /// SetLifetime class A. Then use GetOrDefault method to get the instances, once without name, second with name.
-        /// </summary>
-        [TestMethod]
-        public void SetLifetimeGetTwice()
-        {
-            IUnityContainer uc = new UnityContainer();
-
-            uc.RegisterType<A>(new ContainerControlledLifetimeManager());
-            A obj = uc.Resolve<A>();
-            A obj1 = uc.Resolve<A>("hello");
-         
-            Assert.AreNotSame(obj, obj1);
-        }
-
-        /// <summary>
-        /// SetSingleton class A. Then register instance of class A twice. once by default second by name. 
-        /// Then SetLifetime once default and then by name.
-        /// </summary>
-        [TestMethod]
-        public void SetSingletonRegisterInstanceTwiceSetLifetimeTwice()
-        {
-            IUnityContainer container = new UnityContainer();
-
-            A aInstance = new A();
-
-            container.RegisterInstance(aInstance);
-            container.RegisterInstance("hello", aInstance);
-            container.RegisterType<A>(new ContainerControlledLifetimeManager());
-            container.RegisterType<A>("hello1", new ContainerControlledLifetimeManager());
-
-            A obj = container.Resolve<A>();
-            A obj1 = container.Resolve<A>("hello1");
-            
-            Assert.AreNotSame(obj, obj1);
-        }
-
-        /// <summary>
         /// SetSingleton class A. Then register instance of class A once by default second by name and
         /// again register instance by another name with lifetime control as false.
         /// Then SetLifetime once default and then by name.
         /// </summary>
         [TestMethod]
-        public void SetSingletonNoNameRegisterInstanceDiffNames()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_Twice()
         {
             IUnityContainer uc = new UnityContainer();
 
             A aInstance = new A();
-            uc.RegisterInstance<A>(aInstance)
-                .RegisterInstance<A>("hello", aInstance)
-                .RegisterInstance<A>("hi", aInstance, new ExternallyControlledLifetimeManager());
+            uc.RegisterInstance(aInstance)
+                .RegisterInstance("hello", aInstance)
+                .RegisterInstance("hi", aInstance, new ExternallyControlledLifetimeManager());
 
             A obj = uc.Resolve<A>();
             A obj1 = uc.Resolve<A>("hello");
@@ -149,15 +57,15 @@ namespace Unity.Tests.Lifetime
         /// Then SetLifetime once default and then by name.
         /// </summary>
         [TestMethod]
-        public void SetLifetimeNoNameRegisterInstanceDiffNames()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_SingletonDiffNames()
         {
             IUnityContainer uc = new UnityContainer();
 
             A aInstance = new A();
             uc.RegisterType<A>(new ContainerControlledLifetimeManager())
-                .RegisterInstance<A>(aInstance)
-                .RegisterInstance<A>("hello", aInstance)
-                .RegisterInstance<A>("hi", aInstance, new ExternallyControlledLifetimeManager());
+                .RegisterInstance(aInstance)
+                .RegisterInstance("hello", aInstance)
+                .RegisterInstance("hi", aInstance, new ExternallyControlledLifetimeManager());
 
             A obj = uc.Resolve<A>();
             A obj1 = uc.Resolve<A>("hello");
@@ -173,15 +81,15 @@ namespace Unity.Tests.Lifetime
         /// Then SetLifetime once default and then by name.
         /// </summary>
         [TestMethod]
-        public void SetSingletonWithNameRegisterInstanceDiffNames()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_DiffNames()
         {
             IUnityContainer uc = new UnityContainer();
 
             A aInstance = new A();
             uc.RegisterType<A>("set", new ContainerControlledLifetimeManager())
-                .RegisterInstance<A>(aInstance)
-                .RegisterInstance<A>("hello", aInstance)
-                .RegisterInstance<A>("hi", aInstance, new ExternallyControlledLifetimeManager());
+                .RegisterInstance(aInstance)
+                .RegisterInstance("hello", aInstance)
+                .RegisterInstance("hi", aInstance, new ExternallyControlledLifetimeManager());
 
             A obj = uc.Resolve<A>("set");
             A obj1 = uc.Resolve<A>("hello");
@@ -198,15 +106,15 @@ namespace Unity.Tests.Lifetime
         /// Then SetLifetime once default and then by name.
         /// </summary>
         [TestMethod]
-        public void SetLifetimeWithNameRegisterInstanceDiffNames()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_InstanceDiffNames()
         {
             IUnityContainer uc = new UnityContainer();
 
             A aInstance = new A();
             uc.RegisterType<A>("set", new ContainerControlledLifetimeManager())
-                .RegisterInstance<A>(aInstance)
-                .RegisterInstance<A>("hello", aInstance)
-                .RegisterInstance<A>("hi", aInstance, new ExternallyControlledLifetimeManager());
+                .RegisterInstance(aInstance)
+                .RegisterInstance("hello", aInstance)
+                .RegisterInstance("hi", aInstance, new ExternallyControlledLifetimeManager());
 
             A obj = uc.Resolve<A>("set");
             A obj1 = uc.Resolve<A>("hello");
@@ -224,17 +132,17 @@ namespace Unity.Tests.Lifetime
         /// Then SetLifetime once default and then by name.
         /// </summary>
         [TestMethod]
-        public void SetSingletonClassARegisterInstanceOfAandBWithSameName()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_AandBWithSameName()
         {
             IUnityContainer uc = new UnityContainer();
 
             A aInstance = new A();
             B bInstance = new B();
             uc.RegisterType<A>(new ContainerControlledLifetimeManager())
-                .RegisterInstance<A>(aInstance)
-                .RegisterInstance<A>("hello", aInstance)
-                .RegisterInstance<B>("hi", bInstance)
-                .RegisterInstance<B>("hello", bInstance, new ExternallyControlledLifetimeManager());
+                .RegisterInstance(aInstance)
+                .RegisterInstance("hello", aInstance)
+                .RegisterInstance("hi", bInstance)
+                .RegisterInstance("hello", bInstance, new ExternallyControlledLifetimeManager());
 
             A obj = uc.Resolve<A>();
             A obj1 = uc.Resolve<A>("hello");
@@ -247,89 +155,28 @@ namespace Unity.Tests.Lifetime
             Assert.AreSame(obj2, obj3);
         }
 
-        /// <summary>defect
-        /// SetSingleton class A with name. then register instance of A twice. Once by name, second by default.       
-        /// </summary>
-        [TestMethod]
-        public void SetSingletonByNameRegisterInstanceOnit()
-        {
-            IUnityContainer uc = new UnityContainer();
-
-            A aInstance = new A();
-            uc.RegisterType<A>("SetA", new ContainerControlledLifetimeManager())
-                .RegisterInstance<A>(aInstance)
-                .RegisterInstance<A>("hello", aInstance);
-
-            A obj = uc.Resolve<A>("SetA");
-            A obj1 = uc.Resolve<A>();
-            A obj2 = uc.Resolve<A>("hello");
-            
-            Assert.AreSame(obj1, obj2);
-            Assert.AreNotSame(obj, obj2);
-        }
-
-        /// <summary>
-        /// Use SetLifetime twice, once with parameter, and without parameter
-        /// </summary>
-        [TestMethod]
-        public void TestSetLifetime()
-        {
-            IUnityContainer uc = new UnityContainer();
-
-            uc.RegisterType<A>(new ContainerControlledLifetimeManager())
-               .RegisterType<A>("hello", new ContainerControlledLifetimeManager());
-
-            A obj = uc.Resolve<A>();
-            A obj1 = uc.Resolve<A>("hello");
-            
-            Assert.AreNotSame(obj, obj1);
-        }
-
         /// <summary>
         /// Register class A as singleton then use RegisterInstance to register instance 
         /// of class A.
         /// </summary>
         [TestMethod]
-        public void SetSingletonDefaultNameRegisterInstance()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_Instance()
         {
             IUnityContainer uc = new UnityContainer();
 
-            var aInstance = new EmailService();
-            uc.RegisterType(typeof(EmailService), new ContainerControlledLifetimeManager());
-            uc.RegisterType<EmailService>("SetA", new ContainerControlledLifetimeManager());
+            var aInstance = new ATest();
+            uc.RegisterType(typeof(ATest), new ContainerControlledLifetimeManager());
+            uc.RegisterType<ATest>("SetA", new ContainerControlledLifetimeManager());
             uc.RegisterInstance(aInstance);
             uc.RegisterInstance("hello", aInstance);
             uc.RegisterInstance("hello", aInstance, new ExternallyControlledLifetimeManager());
 
-            var obj =  uc.Resolve<EmailService>();
-            var obj1 = uc.Resolve<EmailService>("SetA");
-            var obj2 = uc.Resolve<EmailService>("hello");
+            var obj =  uc.Resolve<ATest>();
+            var obj1 = uc.Resolve<ATest>("SetA");
+            var obj2 = uc.Resolve<ATest>("hello");
 
             Assert.AreNotSame(obj, obj1);
             Assert.AreSame(obj, obj2);
-        }
-
-        /// <summary>
-        /// Registering a type in both parent as well as child. Now trying to ResolveMethod from both
-        /// check if same or diff instances are returned.
-        /// </summary>
-        [TestMethod]
-        public void RegisterWithParentAndChild()
-        {
-            //create unity container
-            UnityContainer parentuc = new UnityContainer();
-
-            //register type UnityTestClass
-            parentuc.RegisterType<UnityTestClass>(new ContainerControlledLifetimeManager());
-
-            UnityTestClass mytestparent = parentuc.Resolve<UnityTestClass>();
-            mytestparent.Name = "Hello World";
-            IUnityContainer childuc = parentuc.CreateChildContainer();
-            childuc.RegisterType<UnityTestClass>(new ContainerControlledLifetimeManager());
-
-            UnityTestClass mytestchild = childuc.Resolve<UnityTestClass>();
-
-            Assert.AreNotSame(mytestparent.Name, mytestchild.Name);
         }
 
         /// <summary>
@@ -337,7 +184,7 @@ namespace Unity.Tests.Lifetime
         /// returned when again resolve is done.
         /// </summary>
         [TestMethod]
-        public void UseExternallyControlledLifetime()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_Lifetime()
         {
             IUnityContainer parentuc = new UnityContainer();
 
@@ -345,6 +192,7 @@ namespace Unity.Tests.Lifetime
 
             UnityTestClass parentinstance = parentuc.Resolve<UnityTestClass>();
             parentinstance.Name = "Hello World Ob1";
+            // ReSharper disable once RedundantAssignment
             parentinstance = null;
             GC.Collect();
             UnityTestClass parentinstance1 = parentuc.Resolve<UnityTestClass>();
@@ -358,7 +206,7 @@ namespace Unity.Tests.Lifetime
         /// Bug ID : 16372
         /// </summary>
         [TestMethod]
-        public void UseExternallyControlledLifetimeResolve()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_Resolve()
         {
             IUnityContainer parentuc = new UnityContainer();
             parentuc.RegisterType<UnityTestClass>(new ExternallyControlledLifetimeManager());
@@ -376,7 +224,7 @@ namespace Unity.Tests.Lifetime
         /// same instance is returned when asked for ResolveMethod.
         /// </summary>
         [TestMethod]
-        public void UseContainerControlledLifetime()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_Use()
         {
             UnityTestClass obj1 = new UnityTestClass();
 
@@ -401,7 +249,7 @@ namespace Unity.Tests.Lifetime
         /// Bug ID : 16371
         /// </summary>
         [TestMethod]
-        public void TestResolveWithName()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_WithName()
         {
             IUnityContainer uc = new UnityContainer();
 
@@ -411,7 +259,7 @@ namespace Unity.Tests.Lifetime
         }
 
         [TestMethod]
-        public void TestEmpty()
+        public void Container_Lifetime_ExternallyControlledLifetimeManager_Empty()
         {
             UnityContainer uc1 = new UnityContainer();
 
@@ -427,5 +275,33 @@ namespace Unity.Tests.Lifetime
             Assert.AreEqual(b, c);
             Assert.AreEqual(a, c);
         }
+
+        #endregion
+
+
+        #region Test Data
+
+        public class A { }
+
+        public class B{ }
+
+        public interface ITTest { }
+
+        public class ATest : ITTest
+        {
+            public string Strtest = "Hello";
+        }
+        public class UnityTestClass
+        {
+            private string name = "Hello";
+
+            public string Name
+            {
+                get { return name; }
+                set { name = value; }
+            }
+        }
+
+        #endregion
     }
 }

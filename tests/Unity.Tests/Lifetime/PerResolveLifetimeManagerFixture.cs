@@ -1,27 +1,28 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Unity;
 using Unity.Attributes;
 using Unity.Lifetime;
 using Unity.Registration;
 
-namespace Microsoft.Practices.Unity.Tests
+namespace Unity.Container.Tests.Lifetime
 {
     /// <summary>
     /// Summary description for PerResolveLifetimeFixture
     /// </summary>
     [TestClass]
-    public class PerResolveLifetimeFixture
+    public class PerResolveLifetimeManagerFixture
     {
+        #region Tests
+
         [TestMethod]
-        public void ContainerCanBeConfiguredForPerBuildSingleton()
+        public void Container_Lifetime_PerResolveLifetimeManager_CanBeConfigured()
         {
-            var container = new UnityContainer()
+            new UnityContainer()
                 .RegisterType<IPresenter, MockPresenter>()
                 .RegisterType<IView, View>(new PerResolveLifetimeManager());
         }
 
         [TestMethod]
-        public void ViewIsReusedAcrossGraph()
+        public void Container_Lifetime_PerResolveLifetimeManager_ReusedAcrossGraph()
         {
             var container = new UnityContainer()
                 .RegisterType<IPresenter, MockPresenter>()
@@ -34,7 +35,7 @@ namespace Microsoft.Practices.Unity.Tests
         }
 
         [TestMethod]
-        public void ViewsAreDifferentInDifferentResolveCalls()
+        public void Container_Lifetime_PerResolveLifetimeManager_DifferentResolveCalls()
         {
             var container = new UnityContainer()
                 .RegisterType<IPresenter, MockPresenter>()
@@ -47,7 +48,7 @@ namespace Microsoft.Practices.Unity.Tests
         }
 
         [TestMethod]
-        public void PerBuildLifetimeIsHonoredWhenUsingFactory()
+        public void Container_Lifetime_PerResolveLifetimeManager_UsingFactory()
         {
             var container = new UnityContainer()
                 .RegisterType<SomeService>(
@@ -57,6 +58,11 @@ namespace Microsoft.Practices.Unity.Tests
             var rootService = container.Resolve<AService>();
             Assert.AreSame(rootService.SomeService, rootService.OtherService.SomeService);
         }
+
+        #endregion
+
+
+        #region Test Data
 
         // A small object graph to verify per-build configuration works
 
@@ -105,5 +111,7 @@ namespace Microsoft.Practices.Unity.Tests
 
             public SomeOtherService OtherService { get; set; }
         }
+
+        #endregion
     }
 }

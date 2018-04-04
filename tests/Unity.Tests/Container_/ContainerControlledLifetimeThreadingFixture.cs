@@ -6,6 +6,7 @@ using Microsoft.Practices.Unity.Tests.TestDoubles;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Unity.Builder;
 using Unity.Builder.Strategy;
+using Unity.Container.Tests.Extension;
 using Unity.Exceptions;
 using Unity.Lifetime;
 
@@ -16,6 +17,7 @@ namespace Unity.Tests.Container
     [TestClass]
     public class ContainerControlledLifetimeThreadingFixture
     {
+
         [TestMethod]
         public void ContainerControlledLifetimeReturnsSameInstanceFromMultipleThreads()
         {
