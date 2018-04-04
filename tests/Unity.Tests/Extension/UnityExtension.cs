@@ -7,6 +7,7 @@ using Microsoft.Practices.Unity.Tests.TestDoubles;
 using Microsoft.Practices.Unity.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Unity.Builder;
+using Unity.Tests.Container;
 
 namespace Unity.Tests.Extension
 {
@@ -68,6 +69,23 @@ namespace Unity.Tests.Extension
                 .AddExtension(extension);
             object result = container.Resolve<object>();
             
+            Assert.IsTrue(spy.BuildUpWasCalled);
+            Assert.AreSame(result, spy.Existing);
+        }
+
+        [TestMethod]
+        public void Ext_StrategiesAreCalledAfterTypesAreRegistered()
+        {
+            IUnityContainer container = new UnityContainer();
+
+            container.RegisterType<ITest, ATest>();
+
+            SpyStrategy spy = new SpyStrategy();
+            SpyExtension extension = new SpyExtension(spy, UnityBuildStage.PostInitialization);
+
+            container.AddExtension(extension);
+            object result = container.Resolve<ITest>();
+
             Assert.IsTrue(spy.BuildUpWasCalled);
             Assert.AreSame(result, spy.Existing);
         }
